@@ -2,13 +2,15 @@ import streamlit as st
 from supabase import create_client
 import pandas as pd
 
-# 1. Bağlantı Ayarları (Supabase panelinden aldığın kodlar)
-URL = "sb_publishable_1I_NNEeGfhPSk6Wbh9Yuig_gNeeXjv3"
-KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpwZHhtaXBtdnF0eG5tYXV4eHdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcyMDk1MTIsImV4cCI6MjA4Mjc4NTUxMn0.Gb4t-r9lmWBzmHE9EdMfNUbtxm78nKXqM8LRB0IktG4"
+# Bilgileri Secrets'tan çekiyoruz (Hata riskini sıfırlar)
+URL = st.secrets["SUPABASE_URL"]
+KEY = st.secrets["SUPABASE_KEY"]
 
 @st.cache_resource
 def init_connection():
+    # Burası artık hata vermeyecek
     return create_client(URL, KEY)
+
 
 supabase = init_connection()
 
