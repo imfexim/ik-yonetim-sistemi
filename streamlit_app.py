@@ -26,6 +26,34 @@ def load_data():
         st.error(f"Veri çekilirken hata oluştu: {e}")
         return pd.DataFrame()
 
+
+st.divider()
+st.subheader("➕ Yeni Kayıt / Güncelleme Ekle")
+
+with st.form("personel_form"):
+    yeni_ad = st.text_input("Ad Soyad")
+    yeni_tc = st.text_input("TC Kimlik No")
+    yeni_ver = st.number_input("Versiyon", min_value=1, step=1)
+    
+    submit = st.form_submit_button("Sisteme Kaydet")
+    
+    if submit:
+        if yeni_ad and yeni_tc:
+            # Supabase'e veri gönderme işlemi
+            yeni_veri = {
+                "ad_soyad": yeni_ad, 
+                "tc_no": yeni_tc, 
+                "versiyon": yeni_ver
+            }
+            try:
+                supabase.table("Personel").insert(yeni_veri).execute()
+                st.success(f"{yeni_ad} için {yeni_ver}. versiyon başarıyla kaydedildi!")
+                st.rerun() # Sayfayı yenileyip listeyi güncelle
+            except Exception as e:
+                st.error(f"Kayıt sırasında hata: {e}")
+        else:
+            st.warning("Lütfen tüm alanları doldurun.")
+
 df = load_data()
 
 if not df.empty:
