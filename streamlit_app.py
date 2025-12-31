@@ -26,66 +26,31 @@ def load_data():
         st.error(f"Veri çekilirken hata oluştu: {e}")
         return pd.DataFrame()
 
-
 st.divider()
 st.subheader("➕ Yeni Kayıt / Güncelleme Ekle")
 
 with st.form("personel_form"):
-    yeni_ad = st.text_input("Ad Soyad")
-    yeni_tc = st.text_input("TC Kimlik No")
-    yeni_ver = st.number_input("Versiyon", min_value=1, step=1)
+    # Senin listendeki sütunlara göre alanları oluşturuyoruz
+    p_id = st.text_input("Personel ID / Ad Soyad") # personel_id sütunu için
+    p_tc = st.text_input("TC Kimlik No")           # tc_no sütunu için
+    p_ver = st.number_input("Versiyon", min_value=1, step=1) # versiyon sütunu için
     
     submit = st.form_submit_button("Sisteme Kaydet")
     
     if submit:
-        if yeni_ad and yeni_tc:
-            # Supabase'e veri gönderme işlemi
+        if p_id and p_tc:
+            # SUPABASE SÜTUN İSİMLERİYLE BİREBİR EŞLEŞME:
             yeni_veri = {
-                "ad_soyad": yeni_ad, 
-                "tc_no": yeni_tc, 
-                "versiyon": yeni_ver
+                "personel_id": p_id, 
+                "tc_no": p_tc, 
+                "versiyon": p_ver
+                # 'id' ve 'islem_tarihi' Supabase tarafından otomatik doldurulur.
             }
             try:
                 supabase.table("Personel").insert(yeni_veri).execute()
-                st.success(f"{yeni_ad} için {yeni_ver}. versiyon başarıyla kaydedildi!")
-                st.rerun() # Sayfayı yenileyip listeyi güncelle
+                st.success(f"✅ {p_id} başarıyla kaydedildi!")
+                st.rerun() 
             except Exception as e:
-                st.error(f"Kayıt sırasında hata: {e}")
+                st.error(f"❌ Kayıt Hatası: {e}")
         else:
-            st.warning("Lütfen tüm alanları doldurun.")
-
-df = load_data()
-
-if not df.empty:
-    # 3. Üst Bilgi Kartları
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Toplam Kayıt", len(df))
-    col2.metric("Benzersiz Personel", df['ad_soyad'].nunique())
-    col3.metric("Sistem Durumu", "Aktif", delta="Bağlı")
-
-    # 4. Ana Tablo (En Güncel Versiyonlar)
-    st.subheader("📋 Güncel Personel Listesi")
-    # Her personelin sadece en yüksek versiyonunu göster
-    latest_df = df.sort_values('versiyon', ascending=False).drop_duplicates('ad_soyad')
-    st.dataframe(latest_df[['ad_soyad', 'tc_no', 'versiyon', 'created_at']], use_container_width=True, hide_index=True)
-
-    # 5. Timeline / Geçmiş İnceleme Alanı
-    st.divider()
-    st.subheader("📜 Personel İşlem Geçmişi (Timeline)")
-    
-    selected_person = st.selectbox("Geçmişini görmek istediğiniz personeli seçin:", df['ad_soyad'].unique())
-    
-    if selected_person:
-        # Seçilen personelin tüm kayıtlarını versiyona göre diz
-        person_history = df[df['ad_soyad'] == selected_person].sort_values('versiyon', ascending=False)
-        
-        for _, row in person_history.iterrows():
-            with st.expander(f"Versiyon {row['versiyon']} — {row['created_at'][:10]} Tarihli Kayıt"):
-                c1, c2 = st.columns(2)
-                c1.write(f"**Ad Soyad:** {row['ad_soyad']}")
-                c1.write(f"**TC No:** {row['tc_no']}")
-                c2.write(f"**Sistem Kayıt ID:** {row['id']}")
-                c2.info(f"Bu kayıt personelin {row['versiyon']}. güncellenmiş halidir.")
-
-else:
-    st.info("💡 Veri tabanı şu an boş. Supabase üzerinden veri eklediğinizde burada görünecektir.")
+            st.warning("Lütfen zorunlu alanları doldurun.")
