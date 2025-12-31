@@ -66,25 +66,25 @@ if not df.empty:
 st.divider()
 st.subheader("➕ Yeni Kayıt veya Güncelleme Ekle")
 with st.form("kayit_formu"):
-    f_id = st.text_input("Personel ID (Görseldeki gibi PER-170...)")
+    f_ad = st.text_input("Ad Soyad") # Yeni eklediğin sütun için
+    f_id = st.text_input("Personel ID")
     f_tc = st.text_input("TC Kimlik No")
-    f_ver = st.text_input("Versiyon (Görseldeki gibi V1-... veya V2-...)")
+    f_ver = st.text_input("Versiyon")
     
-    submit = st.form_submit_button("Sisteme İşle")
-    
-    if submit:
-        if f_id and f_tc:
-            # SÜTUN İSİMLERİ GÖRSELİNE GÖRE EŞLENDİ
+    if st.form_submit_button("Sisteme İşle"):
+        if f_ad and f_id:
             yeni_satir = {
+                "ad_soyad": f_ad, 
                 "personel_id": f_id, 
                 "tc_no": f_tc, 
                 "versiyon": f_ver
             }
             try:
+                # ÖNEMLİ: Tablo isminin 'Personel' (Büyük P) olduğundan emin ol
                 supabase.table("Personel").insert(yeni_satir).execute()
-                st.success(f"{f_id} başarıyla sisteme işlendi!")
-                st.rerun() # Sayfayı yenileyerek listeyi güncelle
+                st.success("Kayıt başarıyla eklendi!")
+                st.rerun()
             except Exception as e:
-                st.error(f"Kayıt Hatası: {e}")
+                st.error(f"Hata: {e}")
         else:
             st.warning("Lütfen Personel ID ve TC alanlarını doldurun.")
