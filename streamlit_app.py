@@ -34,11 +34,18 @@ if URL and KEY:
     st.success("✅ Supabase bağlantısı başarıyla kuruldu!")
     
     # Test: Tabloyu okumayı dene
-    try:
-        res = supabase.table("Personel").select("*").limit(5).execute()
-        st.write("📊 Personel verileri hazır:")
-        st.dataframe(res.data)
-    except Exception as e:
-        st.warning(f"Bağlantı tamam ama veriler çekilemedi: {e}")
+   # Test: Tabloyu okumayı dene
+try:
+    # 'personel' olan yeri 'Personel' olarak değiştirdik
+    res = supabase.table("Personel").select("*").execute()
+    st.success("📊 Veriler başarıyla çekildi!")
+    
+    if res.data:
+        df = pd.DataFrame(res.data)
+        st.dataframe(df)
+    else:
+        st.info("Tablo bulundu ama içinde hiç veri yok.")
+except Exception as e:
+    st.error(f"Veri çekme hatası: {e}")
 else:
     st.warning("⚠️ Lütfen Streamlit Secrets ayarlarına SUPABASE_URL ve SUPABASE_KEY ekleyin.")
