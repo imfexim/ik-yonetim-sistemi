@@ -35,7 +35,7 @@ if URL and KEY:
     
     # Test: Tabloyu okumayı dene
     try:
-        res = supabase.table("personel").select("*").limit(5).execute()
+        res = supabase.table("Personel").select("*").limit(5).execute()
         st.write("📊 Personel verileri hazır:")
         st.dataframe(res.data)
     except Exception as e:
