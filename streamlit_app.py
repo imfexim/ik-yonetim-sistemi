@@ -2,8 +2,17 @@ import streamlit as st
 from supabase import create_client
 import pandas as pd
 
-# 1. Konfigürasyon
-st.set_page_config(page_title="İM-FEXİM Operasyon Yönetimi", layout="wide")
+# 1. Sayfa Ayarları
+st.set_page_config(page_title="İM-FEXİM Organizasyon", layout="wide")
+
+# Kurumsal Stil
+st.markdown("""
+    <style>
+    .stApp { background-color: #FFFFFF; }
+    [data-testid="stSidebar"] { background-color: #F8F9FA !important; border-right: 1px solid #E9ECEF !important; }
+    h1, h2, h3 { color: #1B1B1B !important; font-weight: 700 !important; }
+    </style>
+    """, unsafe_allow_html=True)
 
 # 2. Bağlantı
 @st.cache_resource
@@ -11,89 +20,67 @@ def init_connection():
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 supabase = init_connection()
 
-# 3. Session State
-if 'v_list' not in st.session_state: st.session_state.v_list = []
-
-# 4. Yan Menü
+# 3. Sol Menü Hiyerarşisi
 with st.sidebar:
-    st.title("İM-FEXİM OPS")
-    menu = st.radio("SİSTEM MENÜSÜ", ["Lokasyon Bankası", "Şirket & Bayi Yapılandırma", "Saha Operasyon İzleme"])
+    st.title("İM-FEXİM")
+    st.markdown("### 🛠️ Organizasyon")
+    # Alt menü simülasyonu
+    org_menu = st.radio("", ["🏢 Departmanlar", "👥 Personel (Yakında)"])
 
-# --- LOKASYON BANKASI ---
-if menu == "Lokasyon Bankası":
-    st.subheader("📍 Fiziksel Mağaza/Bayi Lokasyonları")
-    with st.form("lokasyon_ekle"):
-        c1, c2 = st.columns(2)
-        l_ad = c1.text_input("Lokasyon/AVM Adı", placeholder="Örn: Meydan AVM")
-        l_tip = c2.selectbox("Tür", ["AVM Mağaza", "Cadde Mağaza", "Depo", "Ofis", "Fabrika"])
-        l_adr = st.text_area("Açık Adres")
-        lx, ly = st.columns(2)
-        if st.form_submit_button("Lokasyonu Kaydet"):
-            supabase.table("lokasyonlar").insert({"lokasyon_adi": l_ad, "lokasyon_tipi": l_tip, "adres": l_adr, "koordinat_x": lx.text_input("Enlem (X)"), "koordinat_y": ly.text_input("Boylam (Y)")}).execute()
-            st.success("Lokasyon havuza eklendi.")
+# --- DEPARTMANLAR YÖNETİM ALANI ---
+if org_menu == "🏢 Departmanlar":
+    st.header("Departman Yönetimi")
+    
+    t1, t2 = st.tabs(["➕ Yeni Departman Ekle", "📋 Departman Listesi & İşlemler"])
 
-# --- ŞİRKET & BAYİ YAPILANDIRMA ---
-elif menu == "Şirket & Bayi Yapılandırma":
-    st.subheader("🏢 Kurumsal Hiyerarşi ve Saha Yapısı")
-    t1, t2 = st.tabs(["Yeni Şirket/Bayi Tanımla", "Hiyerarşi Görüntüle"])
-
+    # --- EKLEME ALANI ---
     with t1:
-        st.markdown("##### 1. Şirket/Bayi Kimlik Bilgileri")
-        c1, c2, c3 = st.columns(3)
-        s_ad = c1.text_input("Şirket/Bayi Adı")
-        s_kat = c2.selectbox("Kategori", ["Operatör (Turkcell/Vodafone)", "Zincir Mağaza (MediaMarkt/Teknosa)", "Tedarikçi (Üretim/Sarf)", "Distribütör", "Lojistik/Gümrük"])
-        s_rol = c3.selectbox("Rol", ["Ana Marka", "Distribütör", "Üst Bayi", "Mağaza/Alt Bayi"])
-
-        # HİYERARŞİ BAĞLANTISI (Örn: Bu bayi hangi distribütöre bağlı?)
-        st.markdown("##### 2. Bağlantı Bilgileri")
-        res_s = supabase.table("sirketler").select("id, sirket_adi").execute()
-        s_df = pd.DataFrame(res_s.data)
-        ust_id = None
-        if not s_df.empty:
-            ust_secim = st.selectbox("Bağlı Olduğu Üst Şirket/Distribütör (Varsa)", ["Yok"] + s_df['sirket_adi'].tolist())
-            if ust_secim != "Yok":
-                ust_id = s_df[s_df['sirket_adi'] == ust_secim]['id'].values[0]
-
-        # SAHA MUHATAPLARI (Mağaza Bazlı)
-        st.divider()
-        st.markdown("##### 3. Lokasyon Mevcudiyeti ve Saha Muhatapları")
-        res_l = supabase.table("lokasyonlar").select("id, lokasyon_adi").execute()
-        l_df = pd.DataFrame(res_l.data)
-        
-        if not l_df.empty:
-            col_l1, col_l2 = st.columns([1, 2])
-            l_secim = col_l1.selectbox("Mağaza Lokasyonu", l_df['lokasyon_adi'].tolist())
-            l_id = l_df[l_df['lokasyon_adi'] == l_secim]['id'].values[0]
+        with st.form("dep_ekle_form", clear_on_submit=True):
+            col1, col2 = st.columns(2)
+            d_ad = col1.text_input("Departman Adı", placeholder="Örn: İnsan Kaynakları")
+            d_kod = col2.text_input("Departman Kodu", placeholder="Örn: IK-01")
+            d_aciklama = st.text_area("Açıklama")
             
-            st.caption("Bu mağazadaki/lokasyondaki muhatabımız:")
-            m1, m2, m3 = st.columns(3)
-            m_ad = m1.text_input("Muhatap Ad Soyad")
-            m_tel = m2.text_input("Telefon")
-            m_mail = m3.text_input("E-Posta")
-            
-            if st.button("➕ Mağaza/Varlık Ekle"):
-                st.session_state.v_list.append({
-                    "id": l_id, "ad": l_secim, "m_ad": m_ad, "m_tel": m_tel, "m_mail": m_mail
-                })
-            
-            if st.session_state.v_list:
-                st.dataframe(pd.DataFrame(st.session_state.gecici_varliklar if 'gecici_varliklar' in locals() else st.session_state.v_list), use_container_width=True)
+            if st.form_submit_button("Departmanı Kaydet"):
+                if d_ad:
+                    try:
+                        supabase.table("departmanlar").insert({
+                            "departman_adi": d_ad, "departman_kodu": d_kod, "aciklama": d_aciklama
+                        }).execute()
+                        st.success(f"'{d_ad}' departmanı başarıyla oluşturuldu.")
+                        st.rerun()
+                    except Exception as e: st.error(f"Hata: {e}")
+                else: st.warning("Departman adı boş bırakılamaz.")
 
-        if st.button("🚀 TÜM HİYERARŞİYİ KAYDET"):
-            try:
-                # 1. Şirketi Kaydet
-                s_data = {"sirket_adi": s_ad, "sirket_kategorisi": s_kat, "sirket_rolu": s_rol, "ust_sirket_id": ust_id}
-                s_res = supabase.table("sirketler").insert(s_data).execute()
-                new_id = s_res.data[0]['id']
+    # --- LİSTELEME VE CRUD (DÜZENLE/SİL) ALANI ---
+    with t2:
+        try:
+            res = supabase.table("departmanlar").select("*").order("departman_adi").execute()
+            if res.data:
+                df = pd.DataFrame(res.data)
                 
-                # 2. Lokasyon Varlıklarını Kaydet
-                for v in st.session_state.v_list:
-                    supabase.table("sirket_lokasyon_varliklari").insert({
-                        "sirket_id": new_id, "lokasyon_id": v['id'],
-                        "muhatap_ad_soyad": v['m_ad'], "muhatap_telefon": v['m_tel'], "muhatap_mail": v['m_mail']
-                    }).execute()
-                
-                st.success("Hiyerarşik kayıt tamamlandı.")
-                st.session_state.v_list = []
-                st.rerun()
-            except Exception as e: st.error(str(e))
+                for index, row in df.iterrows():
+                    with st.expander(f"📌 {row['departman_adi']} ({row['departman_kodu'] or 'Kodsuz'})"):
+                        # Düzenleme Formu
+                        with st.form(f"edit_{row['id']}"):
+                            edit_ad = st.text_input("Departman Adı", value=row['departman_adi'])
+                            edit_kod = st.text_input("Departman Kodu", value=row['departman_kodu'])
+                            edit_desc = st.text_area("Açıklama", value=row['aciklama'])
+                            
+                            c1, c2 = st.columns([1, 4])
+                            if c1.form_submit_button("Güncelle"):
+                                supabase.table("departmanlar").update({
+                                    "departman_adi": edit_ad, "departman_kodu": edit_kod, "aciklama": edit_desc
+                                }).eq("id", row['id']).execute()
+                                st.success("Güncellendi!")
+                                st.rerun()
+                                
+                        # Silme Butonu (Ayrı bir alan)
+                        if st.button(f"🗑️ Bu Departmanı Sil", key=f"del_{row['id']}"):
+                            supabase.table("departmanlar").delete().eq("id", row['id']).execute()
+                            st.warning(f"'{row['departman_adi']}' silindi.")
+                            st.rerun()
+            else:
+                st.info("Henüz bir departman tanımlanmamış.")
+        except Exception as e:
+            st.error(f"Veri yüklenemedi: {e}")
