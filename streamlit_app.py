@@ -1,97 +1,133 @@
 import streamlit as st
 from supabase import create_client
 import pandas as pd
+from datetime import datetime
 
 # 1. Sayfa Konfigürasyonu
-st.set_page_config(page_title="İM-FEXİM Admin", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="İMFEXİM Admin", layout="wide", initial_sidebar_state="expanded")
 
-# 2. Squadbase / Ultra-Minimalist CSS (Mavi Renk Temizlendi)
+# 2. Üst Düzey Minimalist CSS (Preline UI Standartları)
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     
-    /* Global Reset - Bembeyaz Zemin */
+    /* Global Reset */
     .stApp, [data-testid="stHeader"], [data-testid="stSidebar"], [data-testid="stAppViewContainer"] {
         background-color: #FFFFFF !important;
         font-family: 'Inter', sans-serif !important;
     }
 
-    /* Sidebar - Ince Ayırıcı ve Temiz Yazılar */
-    [data-testid="stSidebar"] {
-        border-right: 1px solid #F2F4F7 !important;
+    /* Sol Sidebar - Ultra Minimalist */
+    [data-testid="stSidebar"] { border-right: 1px solid #F2F4F7 !important; width: 240px !important; }
+    
+    /* Sol Menü Butonları */
+    .stButton > button {
+        background-color: transparent !important;
+        color: #475467 !important;
+        border: none !important;
+        text-align: left !important;
+        justify-content: flex-start !important;
+        width: 100% !important;
+        font-weight: 500 !important;
+        padding: 10px 15px !important;
     }
-    .nav-section-title {
-        font-size: 11px; font-weight: 700; color: #98A2B3;
-        margin: 25px 0 10px 20px; text-transform: uppercase; letter-spacing: 1px;
+    .stButton > button:hover { background-color: #F9FAFB !important; color: #101828 !important; }
+    
+    /* Aktif Menü Vurgusu */
+    .active-menu > div > button { background-color: #F2F4F7 !important; color: #101828 !important; font-weight: 600 !important; }
+
+    /* Üst Sekme (Alt Menü) Tasarımı */
+    .stTabs [data-baseweb="tab-list"] {
+        background-color: #FFFFFF !important;
+        border-bottom: 1px solid #EAECF0 !important;
+        gap: 30px !important;
+        padding-top: 10px !important;
+    }
+    .stTabs [data-baseweb="tab"] {
+        font-weight: 500 !important;
+        color: #667085 !important;
+        padding-bottom: 12px !important;
+    }
+    .stTabs [aria-selected="true"] {
+        color: #101828 !important;
+        border-bottom: 2px solid #101828 !important;
     }
 
-    /* Başlıklar - Keskin Siyah */
-    h1, h2, h3 { color: #101828 !important; font-weight: 700 !important; letter-spacing: -0.02em !important; }
-    p, label, span { color: #475467 !important; font-size: 14px !important; }
-
-    /* Metrik Kartları - Ince Gri Çizgi */
-    .stat-card {
-        background: #FFFFFF;
-        border: 1px solid #EAECF0;
-        padding: 24px;
-        border-radius: 8px;
-        box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
-    }
-    .stat-value { font-size: 32px; font-weight: 700; color: #101828; margin-top: 5px; }
-
-    /* Input Alanları - Siyahlığı Tamamen Yok Et (Beyaz Zemin, Ince Gri Border) */
-    div[data-baseweb="input"], div[data-baseweb="select"] > div, div[data-baseweb="textarea"] > div {
+    /* Input & Form Alanları - Bembeyaz & Keskin */
+    div[data-baseweb="input"], div[data-baseweb="select"] > div {
         background-color: #FFFFFF !important;
         border: 1px solid #D0D5DD !important;
-        border-radius: 6px !important;
-        color: #101828 !important;
+        border-radius: 8px !important;
     }
-    input { background-color: transparent !important; color: #101828 !important; }
+    input { color: #101828 !important; }
     
-    /* Butonlar - Siyah & Minimalist (Mavi Yerine Siyah) */
-    .stButton > button {
-        background-color: #101828 !important; /* Mavi yerine Koyu Siyah */
+    /* İşlem Butonları - Siyah Minimalist */
+    .main-action-btn > div > button {
+        background-color: #101828 !important;
         color: #FFFFFF !important;
-        border-radius: 6px !important;
-        border: 1px solid #101828 !important;
-        padding: 8px 20px !important;
-        font-weight: 600 !important;
-        font-size: 14px !important;
-        transition: all 0.2s;
-    }
-    .stButton > button:hover {
-        background-color: #1D2939 !important;
-        border-color: #1D2939 !important;
-        box-shadow: 0 4px 12px rgba(16, 24, 40, 0.1);
+        border-radius: 8px !important;
+        padding: 8px 24px !important;
     }
 
-    /* Tablar (Aday Takip Sekmeleri) */
-    .stTabs [data-baseweb="tab-list"] { gap: 24px; border-bottom: 1px solid #EAECF0; }
-    .stTabs [data-baseweb="tab"] { color: #667085; font-weight: 500; }
-    .stTabs [aria-selected="true"] { color: #101828 !important; border-bottom-color: #101828 !important; }
-
-    /* DataTable */
-    [data-testid="stDataEditor"] { border: 1px solid #EAECF0 !important; border-radius: 8px !important; }
-    
-    /* Gizlenen Elementler */
-    [data-testid="stSidebarNav"] { display: none; }
+    /* DataTable Görünümü */
+    [data-testid="stDataEditor"] { border: 1px solid #EAECF0 !important; border-radius: 12px !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# 3. Sidebar (Siyah-Beyaz Navigasyon)
-with st.sidebar:
-    st.markdown("<div style='padding: 20px;'><h3 style='color:#101828; margin:0;'>İM-FEXİM</h3></div>", unsafe_allow_html=True)
-    
-    st.markdown("<div class='nav-section-title'>Genel</div>", unsafe_allow_html=True)
-    if st.button("Dashboard", key="nav_dash", use_container_width=True): st.session_state.active_page = "Dashboard"
-    
-    st.markdown("<div class='nav-section-title'>Organizasyon</div>", unsafe_allow_html=True)
-    if st.button("Departmanlar", use_container_width=True): st.session_state.active_page = "Departmanlar"
-    if st.button("Pozisyonlar", use_container_width=True): st.session_state.active_page = "Pozisyonlar"
-    
-    st.markdown("<div class='nav-section-title'>İnsan Kaynakları</div>", unsafe_allow_html=True)
-    if st.button("Aday Havuzu", use_container_width=True): st.session_state.active_page = "Adaylar"
-    if st.button("Çalışan Listesi", use_container_width=True): st.session_state.active_page = "Personeller"
+# 3. Bağlantı (Supabase)
+@st.cache_resource
+def init_connection():
+    return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
+supabase = init_connection()
 
-# --- SAYFA İÇERİKLERİ ---
-# (Önceki işlevsel kodunu buraya ekleyebilirsin, stil artık yukarıdaki CSS ile kontrol ediliyor)
+# 4. State Yönetimi
+if 'main_page' not in st.session_state: st.session_state.main_page = "Dashboard"
+
+# 5. SOL MENÜ (Sabit)
+with st.sidebar:
+    st.markdown("<div style='padding: 20px 10px;'><h3 style='color:#101828; margin:0;'>İM-FEXİM</h3></div>", unsafe_allow_html=True)
+    
+    st.markdown("<p style='font-size:11px; font-weight:700; color:#98A2B3; margin:20px 10px 10px;'>YÖNETİM</p>", unsafe_allow_html=True)
+    
+    if st.button("Dashboard", use_container_width=True): st.session_state.main_page = "Dashboard"
+    if st.button("Organizasyon", use_container_width=True): st.session_state.main_page = "Organizasyon"
+    if st.button("İşe Alım", use_container_width=True): st.session_state.main_page = "İşe Alım"
+    if st.button("Çalışanlar", use_container_width=True): st.session_state.main_page = "Çalışanlar"
+
+# --- SAĞ TARAF (ANA İÇERİK) ---
+
+# A. DASHBOARD
+if st.session_state.main_page == "Dashboard":
+    st.title("Dashboard")
+    st.markdown("Sistem genelindeki güncel durum ve metrikler.")
+    # (Metrik kartları buraya gelecek)
+
+# B. ORGANİZASYON (Alt Menüler Üstte Sekme Olarak)
+elif st.session_state.main_page == "Organizasyon":
+    st.title("Organizasyon Yapısı")
+    tab_dep, tab_poz, tab_sev = st.tabs(["Departmanlar", "Pozisyonlar", "Seviyeler"])
+    
+    with tab_dep:
+        st.markdown("### Departman Listesi")
+        # (Departman Ekleme/Listeleme Fonksiyonları)
+
+# C. İŞE ALIM (Alt Menüler Üstte Sekme Olarak)
+elif st.session_state.main_page == "İşe Alım":
+    st.title("İşe Alım Süreçleri")
+    tab_aday_ekle, tab_havuz = st.tabs(["Aday Ekle", "Aday Havuzu"])
+    
+    with tab_aday_ekle:
+        st.markdown("<br>", unsafe_allow_html=True)
+        with st.container():
+            c1, c2 = st.columns(2)
+            ad = c1.text_input("Ad Soyad", placeholder="Zorunlu alan")
+            tc = c2.text_input("Kimlik No", placeholder="11 haneli")
+            st.markdown('<div class="main-action-btn">', unsafe_allow_html=True)
+            if st.button("Kaydet ve Havuza At"):
+                st.success("Kayıt Başarılı")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+# D. ÇALIŞANLAR
+elif st.session_state.main_page == "Çalışanlar":
+    st.title("Çalışan Portalı")
+    # (Personel listesi buraya gelecek)
