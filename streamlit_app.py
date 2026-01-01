@@ -11,11 +11,12 @@ st.markdown("""
     .stApp { background-color: #FFFFFF; }
     html, body, [class*="css"], .stMarkdown, p, span, label {
         color: #344767 !important;
-        font-family: 'Inter', sans-serif;
+        font-family: 'Segoe UI', sans-serif;
     }
     h1, h2, h3 { color: #1B1B1B !important; font-weight: 700 !important; }
     section[data-testid="stSidebar"] { background-color: #F8F9FA !important; border-right: 1px solid #E9ECEF !important; }
-    /* Form input alanlarını daha belirgin yapalım */
+    
+    /* Form alanlarını belirginleştirme */
     .stTextInput input, .stTextArea textarea {
         border: 1px solid #DDE1E6 !important;
     }
@@ -25,6 +26,7 @@ st.markdown("""
 # 2. Bağlantı Kurulumu
 @st.cache_resource
 def init_connection():
+    # Secrets üzerinden güvenli bağlantı
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 
 supabase = init_connection()
@@ -67,28 +69,28 @@ if menu == "Şirket Tanımlama":
             
             if submit:
                 if s_ad:
-                    # Tablo adını 'sirketler' (küçük harf) olarak güncelledik
+                    # VERİ TABANI UYUMU: Tablo adını 'sirketler' (küçük harf) olarak belirledik
                     data = {
                         "sirket_adi": s_ad, "sirket_adresi": s_adres, "sirket_telefonu": s_tel,
                         "sirket_mail": s_mail, "sirket_konumu": s_konum, "yonetici_adi": y_ad,
                         "yonetici_telefon": y_tel, "yonetici_mail": y_mail
                     }
                     try:
-                        # HATA BURADAYDI: .table("Sirketler") yerine .table("sirketler")
+                        # Tablo adını 'sirketler' yaparak hatayı gideriyoruz
                         supabase.table("sirketler").insert(data).execute()
                         st.success(f"'{s_ad}' şirket profili başarıyla oluşturuldu.")
                     except Exception as e:
                         st.error(f"Kayıt Hatası: {e}")
                 else:
-                    st.warning("İşleme devam edebilmek için Şirket Adı girmelisiniz.")
+                    st.warning("Lütfen Şirket Adı alanını doldurunuz.")
 
     with tab_list:
         try:
-            # Okuma yaparken de küçük harf kullanıyoruz
+            # Okuma işleminde de küçük harf kullanımı zorunludur
             res = supabase.table("sirketler").select("*").execute()
             df = pd.DataFrame(res.data)
             if not df.empty:
-                # Sütun isimlerini daha şık gösterelim
+                # Sütun isimlerini kullanıcı dostu yapmak için alt çizgileri kaldırıp baş harfleri büyütüyoruz
                 df.columns = [col.replace('_', ' ').title() for col in df.columns]
                 st.dataframe(df, use_container_width=True, hide_index=True)
             else:
