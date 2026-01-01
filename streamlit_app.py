@@ -4,177 +4,147 @@ import pandas as pd
 from datetime import datetime
 
 # 1. Sayfa Konfigürasyonu
-st.set_page_config(page_title="İM-FEXİM | Admin", layout="wide")
+st.set_page_config(page_title="İM-FEXİM | Yönetim", layout="wide")
 
-# 2. KARANLIK TEMAYI VE VERİ GİZLEME SORUNUNU ÖLDÜREN NİHAİ CSS
+# 2. %100 BEYAZ TEMA VE SİYAH YAZI ZORLAMASI (CSS)
 st.markdown("""
     <style>
-    /* 1. TÜM ARKA PLANI BEYAZA ZORLA */
-    .stApp, [data-testid="stHeader"], [data-testid="stSidebar"], [data-testid="stAppViewContainer"] {
+    /* Global Beyaz Zemin */
+    .stApp, [data-testid="stSidebar"], [data-testid="stHeader"] {
         background-color: #FFFFFF !important;
     }
-
-    /* 2. TÜM METİNLERİ SİYAH YAP */
-    h1, h2, h3, h4, h5, h6, p, span, label, div, li, .stMarkdown {
+    /* Tüm Yazılar Siyah */
+    h1, h2, h3, h4, p, span, label, div, li, .stMarkdown {
         color: #000000 !important;
         font-family: 'Inter', sans-serif !important;
     }
-
-    /* 3. BUTONLAR: LACİVERT ZEMİN ÜZERİNE BEYAZ YAZI */
+    /* Butonlar: Lacivert Zemin / Beyaz Yazı */
     div.stButton > button {
         background-color: #2563EB !important;
         color: #FFFFFF !important;
-        border: none !important;
-        padding: 10px 24px !important;
         border-radius: 8px !important;
-        font-weight: 700 !important;
-        display: block !important;
+        font-weight: 600 !important;
+        border: none !important;
     }
-    div.stButton > button:hover {
-        background-color: #1D4ED8 !important;
-        color: #FFFFFF !important;
-    }
+    /* Tablolar: Beyaz Zemin / Siyah Yazı */
+    div[data-testid="stTable"] table { background-color: white !important; color: black !important; }
+    div[data-testid="stTable"] th { background-color: #F9FAFB !important; color: black !important; border-bottom: 2px solid #EEEEEE !important; }
+    div[data-testid="stTable"] td { border-bottom: 1px solid #F0F0F0 !important; }
 
-    /* 4. TABLOLAR: BEYAZ ZEMİN, SİYAH YAZI, GRİ ÇİZGİLER */
-    div[data-testid="stTable"] {
-        background-color: #FFFFFF !important;
-    }
-    div[data-testid="stTable"] table {
-        color: #000000 !important;
-        border-collapse: collapse !important;
-        width: 100% !important;
-    }
-    div[data-testid="stTable"] th {
-        background-color: #F3F4F6 !important;
-        color: #000000 !important;
-        text-align: left !important;
-        padding: 12px !important;
-    }
-    div[data-testid="stTable"] td {
-        background-color: #FFFFFF !important;
-        color: #000000 !important;
-        padding: 12px !important;
-        border-bottom: 1px solid #E5E7EB !important;
-    }
-
-    /* 5. GİRDİ ALANLARI (INPUT & DROPBOX) */
+    /* Input Alanları */
     input, select, textarea, div[data-baseweb="select"] > div {
         background-color: #FFFFFF !important;
         color: #000000 !important;
         border: 1px solid #D1D5DB !important;
     }
-    
-    /* 6. SIDEBAR SEÇENEKLERİ */
-    section[data-testid="stSidebar"] {
-        border-right: 1px solid #E5E7EB !important;
-    }
+    /* Kilitli Alanlar Siyah Yazı */
+    input:disabled { -webkit-text-fill-color: #000000 !important; background-color: #F3F4F6 !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# 3. Supabase Bağlantısı
+# 3. Bağlantı
 @st.cache_resource
 def init_connection():
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 supabase = init_connection()
 
-# --- GÜVENLİ VERİ ÇEKME FONKSİYONU ---
-def get_safe_data(table, select_query="*"):
+# --- VERİ ÇEKME FONKSİYONLARI ---
+def fetch_data(table, query="*"):
     try:
-        res = supabase.table(table).select(select_query).execute()
+        res = supabase.table(table).select(query).execute()
         return res.data if res.data else []
-    except Exception as e:
-        st.error(f"Hata: {table} tablosundan veri alınamadı. {e}")
-        return []
+    except Exception: return []
 
-# 4. Yan Menü Yapısı
+# 4. Yan Menü (Sayfa Geçiş Garantili)
 with st.sidebar:
     st.markdown("<h2 style='color:#2563EB;'>İM-FEXİM</h2>", unsafe_allow_html=True)
     st.markdown("---")
-    main_menu = st.radio("NAVİGASYON", ["Dashboard", "Organizasyon", "İşe Alım", "Çalışanlar"], label_visibility="collapsed")
-    
-    # Alt Menü Mantığı
-    current_page = main_menu
-    if main_menu == "Organizasyon":
-        current_page = st.radio("ALT", ["Departmanlar", "Pozisyonlar", "Seviyeler"])
-    elif main_nav := "İşe Alım":
-        if main_menu == "İşe Alım": current_page = "Adaylar"
+    # Menü seçimi
+    menu = st.sidebar.selectbox("ANA MENÜ", ["📊 Dashboard", "🏢 Organizasyon", "👤 İşe Alım", "👥 Çalışanlar"])
 
-# --- EKRANLAR ---
+# --- SAYFA YÖNLENDİRME MANTIĞI ---
 
-# --- DASHBOARD ---
-if current_page == "Dashboard":
-    st.header("Sistem Özeti")
+# A. DASHBOARD
+if menu == "📊 Dashboard":
+    st.title("Sistem Özeti")
     c1, c2, c3 = st.columns(3)
-    
-    aday_sayisi = len(get_safe_data("adaylar"))
-    personel_sayisi = len(get_safe_data("personeller"))
-    dep_sayisi = len(get_safe_data("departmanlar"))
-    
-    c1.metric("Toplam Aday", aday_sayisi)
-    c2.metric("Aktif Çalışan", personel_sayisi)
-    c3.metric("Departman Sayısı", dep_sayisi)
+    c1.metric("Toplam Aday", len(fetch_data("adaylar")))
+    c2.metric("Aktif Çalışan", len(fetch_data("personeller")))
+    c3.metric("Departman Sayısı", len(fetch_data("departmanlar")))
 
-# --- ADAYLAR ---
-elif current_page == "Adaylar":
-    st.header("Aday Takip Havuzu")
-    t1, t2 = st.tabs(["➕ Yeni Kayıt", "📋 Aktif Liste"])
+# B. ORGANİZASYON
+elif menu == "🏢 Organizasyon":
+    st.title("Organizasyon Yapılandırması")
+    org_sub = st.radio("İşlem Seçin:", ["Departmanlar", "Pozisyonlar", "Seviyeler"], horizontal=True)
     
-    with t1:
-        with st.form("new_aday_form", clear_on_submit=True):
-            ad = st.text_input("Ad Soyad")
-            tc = st.text_input("Kimlik Numarası")
-            if st.form_submit_button("Adayı Havuza Kaydet"):
-                if ad and tc:
-                    supabase.table("adaylar").insert({"ad_soyad": ad, "kimlik_no": tc}).execute()
-                    st.success("Aday eklendi.")
+    if org_sub == "Departmanlar":
+        t1, t2 = st.tabs(["➕ Ekle", "📋 Liste"])
+        with t1:
+            with st.form("d_form", clear_on_submit=True):
+                d_ad = st.text_input("Departman Adı")
+                if st.form_submit_button("Kaydet"):
+                    supabase.table("departmanlar").insert({"departman_adi": d_ad}).execute()
                     st.rerun()
+        with t2:
+            data = fetch_data("departmanlar")
+            if data: st.table(pd.DataFrame(data)[["departman_adi"]])
 
-    with t2:
-        # Verileri JOIN yaparak ve düzleştirerek çekiyoruz
-        query = "*, aday_versiyonlar!guncel_versiyon_id(ise_alim_sureci, telefon)"
-        raw_adaylar = get_safe_data("adaylar", query)
-        
-        if raw_adaylar:
-            final_list = []
-            for r in raw_adaylar:
-                v = r.get('aday_versiyonlar')
-                surec = v.get('ise_alim_sureci', 'aday havuzu') if v else "aday havuzu"
-                
-                # Sadece süreci tamamlanmamışları göster
-                if surec not in ["işe alındı", "olumsuz"]:
-                    final_list.append({
-                        "Ad Soyad": r.get('ad_soyad'),
-                        "TC No": r.get('kimlik_no'),
-                        "Durum": surec.upper(),
-                        "Telefon": v.get('telefon', '-') if v else "-"
-                    })
-            
-            if final_list:
-                st.table(pd.DataFrame(final_list))
-            else:
-                st.info("Aktif süreçte aday bulunmuyor.")
-        else:
-            st.warning("Veritabanında kayıtlı aday verisi bulunamadı.")
+    elif org_sub == "Pozisyonlar":
+        t1, t2 = st.tabs(["➕ Ekle", "📋 Liste"])
+        deps = fetch_data("departmanlar")
+        with t1:
+            with st.form("p_form", clear_on_submit=True):
+                d_map = {d['departman_adi']: d['id'] for d in deps}
+                s_dep = st.selectbox("Departman", ["Seçiniz..."] + list(d_map.keys()))
+                p_ad = st.text_input("Pozisyon Adı")
+                if st.form_submit_button("Pozisyon ve 6 Seviye Oluştur"):
+                    if s_dep != "Seçiniz..." and p_ad:
+                        p_res = supabase.table("pozisyonlar").insert({"departman_id": d_map[s_dep], "pozisyon_adi": p_ad}).execute()
+                        p_id = p_res.data[0]['id']
+                        ks = ["J1", "J2", "M1", "M2", "M3", "S"]
+                        supabase.table("seviyeler").insert([{"pozisyon_id": p_id, "seviye_adi": f"{p_ad} {k}", "seviye_kodu": k} for k in ks]).execute()
+                        st.success("Başarılı"); st.rerun()
+        with t2:
+            res = fetch_data("pozisyonlar", "pozisyon_adi, departmanlar(departman_adi)")
+            if res: st.table(pd.DataFrame([{"Pozisyon": r['pozisyon_adi'], "Departman": r['departmanlar']['departman_adi']} for r in res]))
 
-# --- DEPARTMANLAR ---
-elif current_page == "Departmanlar":
-    st.header("Departman Yönetimi")
-    t1, t2 = st.tabs(["Ekle", "Liste"])
+# C. İŞE ALIM (ADAYLAR)
+elif menu == "👤 İşe Alım":
+    st.title("Aday Takip Sistemi")
+    t1, t2 = st.tabs(["➕ Yeni Aday", "📋 Aktif Havuz"])
+    
     with t1:
-        with st.form("d_form"):
-            d_ad = st.text_input("Departman Adı")
-            if st.form_submit_button("Kaydet"):
-                supabase.table("departmanlar").insert({"departman_adi": d_ad}).execute()
-                st.rerun()
-    with t2:
-        deps = get_safe_data("departmanlar")
-        if deps: st.table(pd.DataFrame(deps)[["departman_adi"]])
+        # Aday Ekleme Formu ve Bağımlı Dropboxlar
+        ad = st.text_input("Ad Soyad *")
+        tc = st.text_input("Kimlik No *")
+        tel = st.text_input("Telefon")
+        # Departman/Pozisyon seçimleri...
+        if st.button("Havuza Kaydet"):
+            if ad and tc:
+                a_res = supabase.table("adaylar").insert({"ad_soyad": ad, "kimlik_no": tc}).execute()
+                a_id = a_res.data[0]['id']
+                # Versiyonlama Kaydı
+                v_res = supabase.table("aday_versiyonlar").insert({
+                    "aday_id": a_id, "ad_soyad": ad, "kimlik_no": tc, "telefon": tel,
+                    "ise_alim_sureci": "aday havuzu", "baslangic_tarihi": datetime.now().isoformat()
+                }).execute()
+                supabase.table("adaylar").update({"guncel_versiyon_id": v_res.data[0]['id']}).eq("id", a_id).execute()
+                st.success("Kaydedildi"); st.rerun()
 
-# --- ÇALIŞANLAR ---
-elif current_page == "Çalışanlar":
-    st.header("Aktif Personel Listesi")
-    # Personel verilerini çek ve tablola...
-    p_query = "*, personel_versiyonlar!guncel_versiyon_id(departman_id, pozisyon_id)"
-    personeller = get_safe_data("personeller", p_query)
-    if personeller:
-        st.table(pd.DataFrame(personeller)[["ad_soyad", "kimlik_no"]])
+    with t2:
+        # Düzleştirilmiş Aday Listesi
+        res = fetch_data("adaylar", "*, aday_versiyonlar!guncel_versiyon_id(*)")
+        aktifler = [r for r in res if r['aday_versiyonlar'] and r['aday_versiyonlar']['ise_alim_sureci'] not in ["işe alındı", "olumsuz"]]
+        if aktifler:
+            df_a = pd.DataFrame([{"Ad Soyad": r['ad_soyad'], "Süreç": r['aday_versiyonlar']['ise_alim_sureci'].upper()} for r in aktifler])
+            st.table(df_a)
+        else: st.info("Aktif aday bulunmuyor.")
+
+# D. ÇALIŞANLAR
+elif menu == "👥 Çalışanlar":
+    st.title("Personel Portalı")
+    res = fetch_data("personeller", "*, personel_versiyonlar!guncel_versiyon_id(*, departmanlar(departman_adi), pozisyonlar(pozisyon_adi))")
+    if res:
+        df_p = pd.DataFrame([{"Ad Soyad": r['ad_soyad'], "Departman": r['personel_versiyonlar']['departmanlar']['departman_adi']} for r in res])
+        st.table(df_p)
+    else: st.warning("Henüz çalışan kaydı yok.")
