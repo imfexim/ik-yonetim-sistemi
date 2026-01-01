@@ -1,13 +1,14 @@
 import streamlit as st
 from supabase import create_client
 import pandas as pd
+import plotly.express as px # Grafik için
 
 # 1. Bağlantı Ayarları
 try:
     URL = st.secrets["SUPABASE_URL"].strip().replace('"', '')
     KEY = st.secrets["SUPABASE_KEY"].strip().replace('"', '')
 except Exception:
-    st.error("Lütfen Streamlit Secrets ayarlarına SUPABASE_URL ve SUPABASE_KEY ekleyin.")
+    st.error("Secrets ayarları eksik!")
     st.stop()
 
 @st.cache_resource
@@ -16,88 +17,85 @@ def init_connection():
 
 supabase = init_connection()
 
-st.set_page_config(page_title="İM-FEXİM İK Paneli", layout="wide")
-st.title("👥 Personel Yönetim ve Versiyon Takip")
+# Sayfa Genişliği ve Başlık
+st.set_page_config(page_title="İM-FEXİM İK PORTAL", layout="wide", page_icon="👥")
 
-# 2. Verileri Çekme
+# --- CUSTOM CSS (Görsellik İçin) ---
+st.markdown("""
+    <style>
+    .main { background-color: #f5f7f9; }
+    .stMetric { background-color: #ffffff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .stDataFrame { border-radius: 10px; overflow: hidden; }
+    </style>
+    """, unsafe_allow_html=True)
+
+st.title("🚀 İM-FEXİM İK Yönetim Paneli")
+st.markdown("---")
+
+# 2. Veri Yükleme
 def load_data():
-    try:
-        res = supabase.table("Personel").select("*").execute()
-        data = pd.DataFrame(res.data)
-        if not data.empty and 'islem_tarihi' in data.columns:
-            # KRİTİK DÜZELTME: Hatalı tarihleri NaT (boş) yapar ve zaman dilimi çakışmasını önler
-            data['islem_tarihi'] = pd.to_datetime(data['islem_tarihi'], errors='coerce', utc=True)
-        return data
-    except Exception as e:
-        st.error(f"Veri çekme hatası: {e}")
-        return pd.DataFrame()
+    res = supabase.table("Personel").select("*").execute()
+    data = pd.DataFrame(res.data)
+    if not data.empty:
+        data['islem_tarihi'] = pd.to_datetime(data['islem_tarihi'], errors='coerce', utc=True)
+    return data
 
 df = load_data()
 
-if not df.empty:
-    # 3. Özet Bilgiler (Hata veren 40. satır güvenli hale getirildi)
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Toplam Kayıt", len(df))
-    c2.metric("Benzersiz Personel", df['personel_id'].nunique() if 'personel_id' in df.columns else 0)
-    
-    # Güvenli son işlem tarihi hesaplama
-    last_action_str = "Tarih Yok"
-    if 'islem_tarihi' in df.columns:
-        valid_dates = df['islem_tarihi'].dropna()
-        if not valid_dates.empty:
-            last_action_str = valid_dates.max().strftime('%Y-%m-%d %H:%M')
-    
-    c3.metric("Son İşlem", last_action_str)
-
-    # 4. Güncel Liste
-    st.subheader("📋 Güncel Durum")
-    # Tarihe göre sıralayıp en günceli alıyoruz
-    latest_df = df.sort_values('islem_tarihi', ascending=False).drop_duplicates('personel_id')
-    
-    display_df = latest_df.copy()
-    if 'islem_tarihi' in display_df.columns:
-        # Tablo görünümü için tarihleri metne çeviriyoruz
-        display_df['islem_tarihi_str'] = display_df['islem_tarihi'].dt.strftime('%Y-%m-%d %H:%M')
-    
-    # Sadece var olan sütunları göster
-    cols = ['ad_soyad', 'personel_id', 'tc_no', 'versiyon', 'islem_tarihi_str']
-    available_cols = [c for c in cols if c in display_df.columns]
-    st.dataframe(display_df[available_cols], use_container_width=True, hide_index=True)
-
-    # 5. Timeline Bölümü
-    st.divider()
-    st.subheader("📜 Personel Geçmişi (Timeline)")
-    
-    if 'personel_id' in df.columns:
-        p_ids = df['personel_id'].unique()
-        selected_id = st.selectbox("Geçmişini incelemek için bir ID seçin:", p_ids)
+# --- YAN MENÜ (Sidebar) ---
+with st.sidebar:
+    st.image("https://cdn-icons-png.flaticon.com/512/912/912214.png", width=100) # Temsili İK Logosu
+    st.header("⚙️ Veri Girişi")
+    with st.form("kayit_formu", clear_on_submit=True):
+        f_ad = st.text_input("Ad Soyad")
+        f_id = st.text_input("Personel ID")
+        f_tc = st.text_input("TC No")
+        f_ver = st.selectbox("Versiyon Durumu", ["V1-Giriş", "V2-Güncelleme", "V3-Terfi", "V4-Çıkış"])
         
-        if selected_id:
-            history = df[df['personel_id'] == selected_id].sort_values('islem_tarihi', ascending=False)
-            for _, row in history.iterrows():
-                t_str = row['islem_tarihi'].strftime('%Y-%m-%d %H:%M') if pd.notnull(row['islem_tarihi']) else "Bilinmiyor"
-                with st.expander(f"{row.get('versiyon', 'V?')} — Kayıt: {t_str}"):
-                    st.write(f"**Ad Soyad:** {row.get('ad_soyad', '-')}")
-                    st.write(f"**TC:** {row.get('tc_no', '-')}")
-                    st.caption(f"Sistem ID: {row.get('id', '-')}")
-
-# 6. Kayıt Formu
-st.divider()
-st.subheader("➕ Yeni Kayıt Ekle")
-with st.form("kayit_formu", clear_on_submit=True):
-    f_ad = st.text_input("Ad Soyad")
-    f_id = st.text_input("Personel ID")
-    f_tc = st.text_input("TC Kimlik No")
-    f_ver = st.text_input("Versiyon")
-    
-    if st.form_submit_button("Sisteme İşle"):
-        if f_ad and f_id:
-            yeni_satir = {"ad_soyad": f_ad, "personel_id": f_id, "tc_no": f_tc, "versiyon": f_ver}
-            try:
-                supabase.table("Personel").insert(yeni_satir).execute()
-                st.success("Kayıt başarıyla eklendi!")
+        if st.form_submit_button("Sisteme İşle"):
+            if f_ad and f_id:
+                yeni = {"ad_soyad": f_ad, "personel_id": f_id, "tc_no": f_tc, "versiyon": f_ver}
+                supabase.table("Personel").insert(yeni).execute()
+                st.success("Kayıt Eklendi!")
                 st.rerun()
-            except Exception as e:
-                st.error(f"Kayıt Hatası: {e}")
-        else:
-            st.warning("Lütfen Ad Soyad ve Personel ID alanlarını doldurun.")
+
+# --- ANA EKRAN ---
+if not df.empty:
+    # 3. Üst Bilgi Kartları (Görsel Kartlar)
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("👥 Toplam Kayıt", len(df))
+    m2.metric("👤 Personel Sayısı", df['personel_id'].nunique())
+    
+    last_date = df['islem_tarihi'].max()
+    m3.metric("📅 Son İşlem", last_date.strftime('%d.%m.%Y') if pd.notnull(last_date) else "-")
+    m4.metric("📈 Sistem Durumu", "Aktif", delta="Online")
+
+    # 4. Grafik ve Tablo Yan Yana
+    st.markdown("### 📊 Veri Analizi ve Güncel Liste")
+    col_left, col_right = st.columns([1, 2])
+
+    with col_left:
+        # Küçük bir işlem yoğunluğu grafiği
+        df_counts = df.groupby(df['islem_tarihi'].dt.date).size().reset_index(name='Kayıt Sayısı')
+        fig = px.line(df_counts, x='islem_tarihi', y='Kayıt Sayısı', title="Günlük İşlem Yoğunluğu")
+        fig.update_layout(height=300, margin=dict(l=20, r=20, t=40, b=20))
+        st.plotly_chart(fig, use_container_width=True)
+
+    with col_right:
+        # Renklendirilmiş Tablo
+        latest_df = df.sort_values('islem_tarihi', ascending=False).drop_duplicates('personel_id')
+        st.dataframe(latest_df[['ad_soyad', 'personel_id', 'tc_no', 'versiyon']], use_container_width=True, hide_index=True)
+
+    # 5. Timeline (Görsel Akış)
+    st.markdown("---")
+    st.subheader("📜 Personel Tarihçesi")
+    selected = st.selectbox("İncelemek için personel seçin:", df['ad_soyad'].unique())
+    
+    if selected:
+        history = df[df['ad_soyad'] == selected].sort_values('islem_tarihi', ascending=False)
+        for _, row in history.iterrows():
+            t_str = row['islem_tarihi'].strftime('%d.%m.%Y %H:%M')
+            st.info(f"**{row['versiyon']}** | {t_str} tarihinde işlem yapıldı. (TC: {row['tc_no']})")
+
+else:
+    st.info("Henüz veri bulunmuyor. Yan menüden ilk kaydı ekleyebilirsiniz.")
