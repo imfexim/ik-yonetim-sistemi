@@ -2,7 +2,7 @@ import streamlit as st
 from supabase import create_client
 import pandas as pd
 
-# 1. Sayfa Konfigürasyonu
+# 1. Sayfa Ayarları
 st.set_page_config(page_title="İM-FEXİM Kurumsal Yönetim", layout="wide")
 
 # --- KURUMSAL STİL (CSS) ---
@@ -18,118 +18,98 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Bağlantı Kurulumu
+# 2. Bağlantı
 @st.cache_resource
 def init_connection():
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 
 supabase = init_connection()
 
-# 3. Yan Menü
+# 3. Yan Menü (Daha yalın)
 with st.sidebar:
     st.markdown("### İM-FEXİM")
     st.markdown("<p style='font-size:11px; color:#ADB5BD; letter-spacing:1px; margin-top:-15px;'>ORGANİZASYONEL YÖNETİM</p>", unsafe_allow_html=True)
-    menu = st.radio("SİSTEM MENÜSÜ", ["Şirket Tanımlama", "Lokasyon Yönetimi", "Birim Yönetimi", "Personel İşlemleri"])
+    menu = st.radio("SİSTEM MENÜSÜ", ["Şirket ve Lokasyon Tanımlama", "Birim Yönetimi", "Personel İşlemleri"])
 
-# --- ŞİRKET TANIMLAMA MENÜSÜ ---
-if menu == "Şirket Tanımlama":
-    st.subheader("Kurumsal Şirket Profil Yönetimi")
-    tab_create, tab_list = st.tabs(["Yeni Şirket Kaydı", "Kayıtlı Şirketler"])
+# --- ŞİRKET VE LOKASYON BİRLEŞİK YÖNETİMİ ---
+if menu == "Şirket ve Lokasyon Tanımlama":
+    st.subheader("Kurumsal Şirket ve Birincil Lokasyon Yönetimi")
+    
+    tab_create, tab_list = st.tabs(["Yeni Şirket ve Lokasyon Kaydı", "Kayıtlı Şirketler ve Şubeleri"])
     
     with tab_create:
-        with st.form("sirket_formu", clear_on_submit=True):
-            st.markdown("##### Kurumsal Bilgiler")
-            col1, col2 = st.columns(2)
-            s_ad = col1.text_input("Şirket Adı")
-            s_tel = col2.text_input("Şirket Telefonu")
-            s_adres = st.text_area("Şirket Adresi", height=80)
-            col3, col4 = st.columns(2)
-            s_mail = col3.text_input("Şirket Mail Adresi")
-            s_konum = col4.text_input("Şirket Genel Konumu (Şehir/Ülke)")
+        with st.form("birlesik_kayit_formu", clear_on_submit=True):
+            # BÖLÜM 1: ŞİRKET BİLGİLERİ
+            st.markdown("##### 1. Kurumsal Şirket Bilgileri")
+            c1, c2 = st.columns(2)
+            s_ad = c1.text_input("Şirket Adı (Resmi Ünvan)")
+            s_mail = c2.text_input("Kurumsal Mail")
             
-            st.markdown("<br>##### Yönetici Bilgileri", unsafe_allow_html=True)
-            col5, col6, col7 = st.columns(3)
-            y_ad = col5.text_input("Yönetici Adı Soyadı")
-            y_tel = col6.text_input("Yönetici Telefonu")
-            y_mail = col7.text_input("Yönetici Mail Adresi")
+            # BÖLÜM 2: YÖNETİCİ BİLGİLERİ
+            st.markdown("<br>##### 2. Üst Yönetici Bilgileri", unsafe_allow_html=True)
+            y1, y2, y3 = st.columns(3)
+            y_ad = y1.text_input("Yönetici Ad Soyad")
+            y_tel = y2.text_input("Yönetici Telefon")
+            y_mail = y3.text_input("Yönetici Mail")
+
+            # BÖLÜM 3: LOKASYON BİLGİLERİ (Zorunlu İlk Lokasyon)
+            st.markdown("<br>##### 3. Birincil Lokasyon / Şube Bilgileri", unsafe_allow_html=True)
+            l1, l2, l3 = st.columns(3)
+            l_ad = l1.text_input("Lokasyon Adı", value="Genel Merkez")
+            l_tip = l2.selectbox("Lokasyon Tipi", ["Genel Merkez", "Ofis", "Şube", "Depo", "Fabrika"])
+            l_tel = l3.text_input("Lokasyon Telefonu")
             
-            if st.form_submit_button("Şirket Profilini Kaydet"):
-                if s_ad:
-                    data = {"sirket_adi": s_ad, "sirket_adresi": s_adres, "sirket_telefonu": s_tel, "sirket_mail": s_mail, "sirket_konumu": s_konum, "yonetici_adi": y_ad, "yonetici_telefon": y_tel, "yonetici_mail": y_mail}
+            l_adres = st.text_area("Lokasyon Açık Adresi")
+            
+            lx, ly = st.columns(2)
+            l_x = lx.text_input("Koordinat X (Enlem)")
+            l_y = ly.text_input("Koordinat Y (Boylam)")
+
+            if st.form_submit_button("Şirket ve Lokasyonu Birlikte Kaydet"):
+                if s_ad and l_ad:
                     try:
-                        supabase.table("sirketler").insert(data).execute()
-                        st.success(f"'{s_ad}' başarıyla kaydedildi.")
-                    except Exception as e: st.error(f"Hata: {e}")
-                else: st.warning("Şirket adı zorunludur.")
+                        # 1. Şirketi Kaydet
+                        s_data = {
+                            "sirket_adi": s_ad, "sirket_mail": s_mail,
+                            "yonetici_adi": y_ad, "yonetici_telefon": y_tel, "yonetici_mail": y_mail
+                        }
+                        s_res = supabase.table("sirketler").insert(s_data).execute()
+                        new_sirket_id = s_res.data[0]['id']
+
+                        # 2. Lokasyonu Kaydet (Şirket ID'sine bağlayarak)
+                        l_data = {
+                            "sirket_id": new_sirket_id, "lokasyon_adi": l_ad, "lokasyon_tipi": l_tip,
+                            "telefon": l_tel, "adres": l_adres, "koordinat_x": l_x, "koordinat_y": l_y
+                        }
+                        supabase.table("lokasyonlar").insert(l_data).execute()
+                        
+                        st.success(f"'{s_ad}' şirketi ve '{l_ad}' lokasyonu başarıyla oluşturuldu.")
+                    except Exception as e:
+                        st.error(f"Kayıt sırasında hata: {e}")
+                else:
+                    st.warning("Lütfen Şirket Adı ve Lokasyon Adı alanlarını doldurunuz.")
 
     with tab_list:
+        # Şirketleri ve onlara bağlı lokasyonları çekiyoruz
         try:
-            res = supabase.table("sirketler").select("*").execute()
-            df = pd.DataFrame(res.data)
-            if not df.empty:
-                df.columns = [c.replace('_', ' ').title() for c in df.columns]
-                st.dataframe(df, use_container_width=True, hide_index=True)
-            else: st.info("Kayıt bulunamadı.")
-        except Exception as e: st.error(f"Veri hatası: {e}")
-
-# --- LOKASYON YÖNETİMİ MENÜSÜ ---
-elif menu == "Lokasyon Yönetimi":
-    st.subheader("Lokasyon ve Fiziksel Alan Yönetimi")
-    try:
-        query_res = supabase.table("sirketler").select("id, sirket_adi").execute()
-        sirket_df = pd.DataFrame(query_res.data)
-    except: sirket_df = pd.DataFrame()
-
-    if not sirket_df.empty:
-        selected_sirket_name = st.selectbox("İşlem Yapılacak Şirketi Seçin", sirket_df['sirket_adi'])
-        selected_sirket_id = sirket_df[sirket_df['sirket_adi'] == selected_sirket_name]['id'].values[0]
-
-        tab_add, tab_list = st.tabs(["Yeni Lokasyon Tanımla", "Mevcut Lokasyonlar"])
-
-        with tab_add:
-            with st.form("lokasyon_detay_form", clear_on_submit=True):
-                st.markdown("##### Lokasyon Temel Bilgileri")
-                c1, c2, c3 = st.columns(3)
-                l_ad = c1.text_input("Lokasyon Adı (Örn: Gebze Lojistik Merkezi)")
-                l_tip = c2.selectbox("Lokasyon Tipi", ["Genel Merkez", "Bölge Müdürlüğü", "Şube", "Depo", "Bayi", "Fabrika", "Ofis"])
-                l_mail = c3.text_input("Lokasyon Genel Mail")
-                
-                l_adres = st.text_area("Lokasyon Açık Adresi")
-                l_tel = st.text_input("Lokasyon İletişim Telefonu")
-
-                st.markdown("##### Coğrafi Konum Bilgileri (GPS)")
-                g1, g2 = st.columns(2)
-                l_x = g1.text_input("Koordinat X (Enlem / Latitude)", placeholder="Örn: 40.9833")
-                l_y = g2.text_input("Koordinat Y (Boylam / Longitude)", placeholder="Örn: 29.1167")
-
-                st.markdown("##### Muhatap / Sorumlu Kişi Bilgileri")
-                m1, m2, m3 = st.columns(3)
-                m_ad = m1.text_input("Muhatap Ad Soyad")
-                m_tel = m2.text_input("Muhatap Telefon")
-                m_mail = m3.text_input("Muhatap Mail")
-
-                if st.form_submit_button("Lokasyonu Kaydet"):
-                    if l_ad:
-                        new_loc = {
-                            "sirket_id": str(selected_sirket_id), "lokasyon_adi": l_ad, "lokasyon_tipi": l_tip,
-                            "lokasyon_mail": l_mail, "adres": l_adres, "telefon": l_tel,
-                            "koordinat_x": l_x, "koordinat_y": l_y,
-                            "muhatap_ad": m_ad, "muhatap_tel": m_tel, "muhatap_mail": m_mail
-                        }
-                        try:
-                            supabase.table("lokasyonlar").insert(new_loc).execute()
-                            st.success(f"{l_ad} lokasyonu koordinat bilgileriyle birlikte kaydedildi.")
-                        except Exception as e: st.error(f"Hata: {e}")
-                    else: st.warning("Lokasyon adı gereklidir.")
-
-        with tab_list:
-            try:
-                res_l = supabase.table("lokasyonlar").select("*").eq("sirket_id", selected_sirket_id).execute()
-                l_data = pd.DataFrame(res_l.data)
-                if not l_data.empty:
-                    # Sütunları daha temiz gösterelim
-                    l_data.columns = [c.replace('_', ' ').title() for c in l_data.columns]
-                    st.dataframe(l_data, use_container_width=True, hide_index=True)
-                else: st.info("Bu şirkete tanımlı lokasyon bulunamadı.")
-            except: st.error("Veri yüklenemedi.")
-    else: st.warning("Önce bir şirket tanımlamalısınız.")
+            res = supabase.table("sirketler").select("*, lokasyonlar(*)").execute()
+            data = res.data
+            
+            if data:
+                for item in data:
+                    with st.expander(f"🏢 {item['sirket_adi']} (Yönetici: {item['yonetici_adi']})"):
+                        st.markdown(f"**Kurumsal Mail:** {item['sirket_mail']}")
+                        st.markdown("**Bağlı Lokasyonlar / Şubeler:**")
+                        
+                        # Bu şirkete ait lokasyonları tablo olarak göster
+                        loc_df = pd.DataFrame(item['lokasyonlar'])
+                        if not loc_df.empty:
+                            loc_display = loc_df[['lokasyon_adi', 'lokasyon_tipi', 'telefon', 'adres', 'koordinat_x', 'koordinat_y']]
+                            loc_display.columns = ["Lokasyon", "Tip", "Telefon", "Adres", "X", "Y"]
+                            st.table(loc_display)
+                        
+                        # Ek lokasyon ekleme butonu istersen buraya eklenebilir
+            else:
+                st.info("Kayıtlı şirket bulunamadı.")
+        except Exception as e:
+            st.error(f"Veri çekme hatası: {e}")
