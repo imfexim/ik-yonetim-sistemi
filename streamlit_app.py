@@ -2,113 +2,121 @@ import streamlit as st
 from supabase import create_client
 import pandas as pd
 
-# 1. Sayfa Konfigürasyonu (Geniş mod ve Kurumsal Başlık)
-st.set_page_config(page_title="İM-FEXİM Kurumsal İK", layout="wide")
+# 1. KURUMSAL SAYFA AYARLARI
+st.set_page_config(page_title="İM-FEXİM Kurumsal Portal", layout="wide")
 
-# --- KURUMSAL ARAYÜZ TASARIMI (CSS) ---
+# --- PROFESYONEL STİL (CSS) ---
 st.markdown("""
     <style>
-    /* Ana Arka Plan: Beyaz */
+    /* Beyaz Arka Plan ve Koyu Antrasit Yazı */
     .stApp { background-color: #FFFFFF; }
-
-    /* Metin Renkleri: Koyu Antrasit (#344767 kurumsal standarttır) */
+    
     html, body, [class*="css"], .stMarkdown, p, span, label {
         color: #344767 !important;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        font-family: 'Inter', 'Segoe UI', sans-serif;
     }
-
-    /* Üst Profil Barı (Header) */
-    .stHeader {
-        background-color: #FFFFFF;
-        border-bottom: 1px solid #E9ECEF;
-    }
-
-    /* Sol Navigasyon (Sidebar) */
+    
+    /* Yan Menü (Sidebar) */
     section[data-testid="stSidebar"] {
         background-color: #F8F9FA !important;
         border-right: 1px solid #E9ECEF !important;
     }
+    
+    /* Tablo ve Form Kartları */
+    .stTabs [data-baseweb="tab-list"] { gap: 24px; }
+    .stTabs [data-baseweb="tab"] {
+        height: 50px;
+        white-space: pre;
+        font-weight: 600;
+        font-size: 14px;
+        color: #67748E;
+    }
+    .stTabs [aria-selected="true"] { color: #344767; border-bottom-color: #344767; }
 
-    /* Profesyonel Tablo Stili */
-    .stDataFrame {
-        border: 1px solid #E9ECEF;
-        border-radius: 4px;
+    /* Üst İnce Bar */
+    .top-header {
+        display: flex;
+        justify-content: flex-end;
+        padding: 5px 0px;
+        border-bottom: 1px solid #F0F2F5;
+        margin-bottom: 20px;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Supabase Bağlantısı
+# 2. BAĞLANTI
 @st.cache_resource
 def init_connection():
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 
 supabase = init_connection()
 
-# --- ÜST PANEL (PROFIL / AYARLAR / BİLDİRİMLER) ---
-# Sağ üst köşeye ince bir işlem alanı simülasyonu
-header_col1, header_col2 = st.columns([8, 2])
-with header_col2:
-    st.markdown("""
-        <div style="text-align: right; font-size: 13px; color: #6C757D; padding-top: 10px;">
-            Bildirimler &nbsp; | &nbsp; Ayarlar &nbsp; | &nbsp; <span style="font-weight: bold; color: #344767;">Admin Profil</span>
+# --- ÜST PANEL (PROFIL / BİLDİRİM / AYARLAR) ---
+st.markdown("""
+    <div class="top-header">
+        <div style="font-size: 13px; color: #8392AB;">
+            Bildirimler &nbsp;&nbsp; | &nbsp;&nbsp; Ayarlar &nbsp;&nbsp; | &nbsp;&nbsp; 
+            <span style="font-weight: 600; color: #344767;">Yönetici Paneli</span>
         </div>
+    </div>
     """, unsafe_allow_html=True)
-
-st.markdown("---")
 
 # --- SOL NAVİGASYON (SIDEBAR) ---
 with st.sidebar:
-    st.markdown("<h3 style='margin-bottom: 0;'>İM-FEXİM</h3>", unsafe_allow_html=True)
-    st.markdown("<p style='font-size: 11px; color: #ADB5BD; letter-spacing: 1px;'>KURUMSAL YÖNETİM</p>", unsafe_allow_html=True)
+    st.markdown("<h3 style='margin-bottom:0;'>İM-FEXİM</h3>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size:11px; color:#ADB5BD; letter-spacing:1px;'>KURUMSAL İK SİSTEMİ</p>", unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # Ana Menü Navigasyonu
-    menu_selection = st.radio(
-        "SİSTEM MENÜSÜ",
-        ["Organizasyon Yapısı", "Personel Yönetimi", "Tanımlamalar", "Raporlar"],
-        label_visibility="visible"
+    main_menu = st.radio(
+        "SİSTEM NAVİGASYONU",
+        ["Organizasyon Yapısı", "Personel Yönetimi", "Tanımlamalar", "Sistem Raporları"],
+        label_visibility="collapsed"
     )
 
-# --- SAĞ ÇALIŞMA ALANI (ANA EKRAN) ---
-if menu_selection == "Organizasyon Yapısı":
+# --- SAĞ ÇALIŞMA ALANI ---
+if main_menu == "Organizasyon Yapısı":
     st.subheader("Organizasyonel Birim Yönetimi")
+    st.markdown("<p style='font-size:14px; color:#67748E;'>Şirket hiyerarşisini, departmanları ve bağlı birimleri bu alandan yönetebilirsiniz.</p>", unsafe_allow_html=True)
     
-    # Alt Menü Sekmeleri
-    tab_list, tab_add, tab_hierarchy = st.tabs(["Birim Listesi", "Yeni Birim Tanımla", "Şema Görüntüle"])
+    # CRUD İŞLEMLERİ İÇİN TABLAR
+    tab_list, tab_create, tab_history = st.tabs(["Birim Listesi", "Yeni Birim Tanımla", "İşlem Günlüğü"])
     
     with tab_list:
-        # Arama ve Filtreleme Şeridi
-        search_col1, search_col2 = st.columns([3, 1])
-        with search_col1:
-            search_query = st.text_input("Birim veya kod ara...", placeholder="Arama kriterlerini giriniz...")
+        # Arama ve Filtreleme
+        col_search, col_filter = st.columns([3, 1])
+        with col_search:
+            search = st.text_input("Birim veya Kod ile Ara", placeholder="Örn: İnsan Kaynakları...", label_visibility="collapsed")
         
-        # CRUD: Veri Listeleme (Personel tablonu şimdilik referans alıyoruz)
+        # Mevcut veriyi göster (Görselde gördüğüm Personel tablosunu şablon olarak kullanıyorum)
         try:
             res = supabase.table("Personel").select("*").execute()
             df = pd.DataFrame(res.data)
             
             if not df.empty:
-                # Basit filtreleme mantığı
-                if search_query:
-                    df = df[df.apply(lambda row: row.astype(str).str.contains(search_query, case=False).any(), axis=1)]
-                
-                st.dataframe(df, use_container_width=True, hide_index=True)
+                # Kolon başlıklarını kurumsallaştıralım
+                st.dataframe(
+                    df[['personel_id', 'tc_no', 'versiyon', 'islem_tarihi']], 
+                    use_container_width=True, 
+                    hide_index=True
+                )
             else:
-                st.info("Kayıtlı birim bulunamadı.")
-        except Exception as e:
-            st.error(f"Veri erişim hatası: {e}")
+                st.info("Henüz tanımlanmış bir organizasyon birimi bulunmuyor.")
+        except:
+            st.error("Veritabanı bağlantısı kurulamadı.")
 
-    with tab_add:
-        st.markdown("##### Yeni Birim Giriş Formu")
-        with st.form("new_unit_form"):
-            col_a, col_b = st.columns(2)
-            unit_name = col_a.text_input("Birim Adı")
-            unit_code = col_b.text_input("Birim Kodu")
-            parent_unit = st.selectbox("Üst Birim", ["Yönetim Kurulu", "Genel Müdürlük", "İnsan Kaynakları"])
+    with tab_create:
+        st.markdown("#### Yeni Birim Kaydı")
+        with st.form("org_form", clear_on_submit=True):
+            c1, c2 = st.columns(2)
+            unit_name = c1.text_input("Birim / Departman Adı")
+            unit_code = c2.text_input("Birim Kodu (Örn: HR-01)")
             
-            if st.form_submit_button("Birimi Kaydet"):
-                st.success("Yeni organizasyon birimi başarıyla oluşturuldu.")
+            parent_unit = st.selectbox("Bağlı Olduğu Üst Birim", ["Yönetim Kurulu", "Genel Müdürlük", "Operasyon Direktörlüğü"])
+            
+            if st.form_submit_button("Birimi Sisteme Kaydet"):
+                # Burada INSERT işlemi yapılacak
+                st.success(f"{unit_name} başarıyla organizasyon şemasına eklendi.")
 
-elif menu_selection == "Personel Yönetimi":
+elif main_menu == "Personel Yönetimi":
     st.subheader("Personel Veri Bankası")
-    st.markdown("Bu alandan personel özlük dosyalarına ve CRUD işlemlerine erişebilirsiniz.")
+    st.info("Personel kartları ve özlük işlemleri bu alanda listelenecektir.")
