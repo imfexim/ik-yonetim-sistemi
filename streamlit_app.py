@@ -25,7 +25,7 @@ def load_data():
         res = supabase.table("Personel").select("*").execute()
         data = pd.DataFrame(res.data)
         if not data.empty and 'islem_tarihi' in data.columns:
-            # KRİTİK DÜZELTME: Hatalı tarihleri NaT (Not a Time) yapar ve UTC'ye eşitler
+            # KRİTİK DÜZELTME: Hatalı tarihleri NaT (boş) yapar ve zaman dilimi çakışmasını önler
             data['islem_tarihi'] = pd.to_datetime(data['islem_tarihi'], errors='coerce', utc=True)
         return data
     except Exception as e:
@@ -35,37 +35,32 @@ def load_data():
 df = load_data()
 
 if not df.empty:
-    # 3. Özet Bilgiler (Hata veren 40. satır revize edildi)
+    # 3. Özet Bilgiler (Hata veren 40. satır güvenli hale getirildi)
     c1, c2, c3 = st.columns(3)
     c1.metric("Toplam Kayıt", len(df))
     c2.metric("Benzersiz Personel", df['personel_id'].nunique() if 'personel_id' in df.columns else 0)
     
     # Güvenli son işlem tarihi hesaplama
-    try:
-        # Boş olmayan en büyük tarihi al
+    last_action_str = "Tarih Yok"
+    if 'islem_tarihi' in df.columns:
         valid_dates = df['islem_tarihi'].dropna()
         if not valid_dates.empty:
             last_action_str = valid_dates.max().strftime('%Y-%m-%d %H:%M')
-        else:
-            last_action_str = "Tarih Verisi Yok"
-    except:
-        last_action_str = "Format Hatası"
     
     c3.metric("Son İşlem", last_action_str)
 
     # 4. Güncel Liste
     st.subheader("📋 Güncel Durum")
-    # En yeni tarih en üstte olacak şekilde sırala ve isim bazlı tekile indir
+    # Tarihe göre sıralayıp en günceli alıyoruz
     latest_df = df.sort_values('islem_tarihi', ascending=False).drop_duplicates('personel_id')
     
     display_df = latest_df.copy()
     if 'islem_tarihi' in display_df.columns:
-        # Tabloda temiz görünmesi için string'e çevir
+        # Tablo görünümü için tarihleri metne çeviriyoruz
         display_df['islem_tarihi_str'] = display_df['islem_tarihi'].dt.strftime('%Y-%m-%d %H:%M')
     
-    # Tablo Sütunları
+    # Sadece var olan sütunları göster
     cols = ['ad_soyad', 'personel_id', 'tc_no', 'versiyon', 'islem_tarihi_str']
-    # Sadece var olan sütunları seç
     available_cols = [c for c in cols if c in display_df.columns]
     st.dataframe(display_df[available_cols], use_container_width=True, hide_index=True)
 
@@ -88,12 +83,12 @@ if not df.empty:
 
 # 6. Kayıt Formu
 st.divider()
-st.subheader("➕ Yeni Kayıt veya Güncelleme Ekle")
+st.subheader("➕ Yeni Kayıt Ekle")
 with st.form("kayit_formu", clear_on_submit=True):
     f_ad = st.text_input("Ad Soyad")
     f_id = st.text_input("Personel ID")
     f_tc = st.text_input("TC Kimlik No")
-    f_ver = st.text_input("Versiyon (Örn: V1)")
+    f_ver = st.text_input("Versiyon")
     
     if st.form_submit_button("Sisteme İşle"):
         if f_ad and f_id:
