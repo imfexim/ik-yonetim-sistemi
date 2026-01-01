@@ -25,7 +25,7 @@ def load_data():
         res = supabase.table("Personel").select("*").execute()
         data = pd.DataFrame(res.data)
         if not data.empty and 'islem_tarihi' in data.columns:
-            # HATAYI ÖNLEYEN KRİTİK SATIR: Hatalı tarihleri NaT (boş) yapar
+            # KRİTİK DÜZELTME: Hatalı tarihleri NaT (Not a Time) yapar ve UTC'ye eşitler
             data['islem_tarihi'] = pd.to_datetime(data['islem_tarihi'], errors='coerce', utc=True)
         return data
     except Exception as e:
@@ -35,36 +35,39 @@ def load_data():
 df = load_data()
 
 if not df.empty:
-    # 3. Özet Bilgiler (Hata veren kısım revize edildi)
+    # 3. Özet Bilgiler (Hata veren 40. satır revize edildi)
     c1, c2, c3 = st.columns(3)
     c1.metric("Toplam Kayıt", len(df))
     c2.metric("Benzersiz Personel", df['personel_id'].nunique() if 'personel_id' in df.columns else 0)
     
     # Güvenli son işlem tarihi hesaplama
     try:
-        last_action_val = df['islem_tarihi'].max()
-        if pd.notnull(last_action_val):
-            last_action_str = last_action_val.strftime('%Y-%m-%d %H:%M')
+        # Boş olmayan en büyük tarihi al
+        valid_dates = df['islem_tarihi'].dropna()
+        if not valid_dates.empty:
+            last_action_str = valid_dates.max().strftime('%Y-%m-%d %H:%M')
         else:
-            last_action_str = "Tarih Yok"
+            last_action_str = "Tarih Verisi Yok"
     except:
-        last_action_str = "Hatalı Format"
+        last_action_str = "Format Hatası"
     
     c3.metric("Son İşlem", last_action_str)
 
     # 4. Güncel Liste
     st.subheader("📋 Güncel Durum")
-    # Tarihe göre sıralayıp en günceli alıyoruz
+    # En yeni tarih en üstte olacak şekilde sırala ve isim bazlı tekile indir
     latest_df = df.sort_values('islem_tarihi', ascending=False).drop_duplicates('personel_id')
     
-    # Tablo görünümü için tarihi metne çevir
     display_df = latest_df.copy()
     if 'islem_tarihi' in display_df.columns:
-        display_df['islem_tarihi'] = display_df['islem_tarihi'].dt.strftime('%Y-%m-%d %H:%M')
+        # Tabloda temiz görünmesi için string'e çevir
+        display_df['islem_tarihi_str'] = display_df['islem_tarihi'].dt.strftime('%Y-%m-%d %H:%M')
     
-    # Mevcut sütunlara göre tabloyu bas
-    cols_to_show = [c for c in ['ad_soyad', 'personel_id', 'tc_no', 'versiyon', 'islem_tarihi'] if c in display_df.columns]
-    st.dataframe(display_df[cols_to_show], use_container_width=True, hide_index=True)
+    # Tablo Sütunları
+    cols = ['ad_soyad', 'personel_id', 'tc_no', 'versiyon', 'islem_tarihi_str']
+    # Sadece var olan sütunları seç
+    available_cols = [c for c in cols if c in display_df.columns]
+    st.dataframe(display_df[available_cols], use_container_width=True, hide_index=True)
 
     # 5. Timeline Bölümü
     st.divider()
@@ -72,20 +75,20 @@ if not df.empty:
     
     if 'personel_id' in df.columns:
         p_ids = df['personel_id'].unique()
-        selected_id = st.selectbox("Geçmiş için Personel ID seçin:", p_ids)
+        selected_id = st.selectbox("Geçmişini incelemek için bir ID seçin:", p_ids)
         
         if selected_id:
             history = df[df['personel_id'] == selected_id].sort_values('islem_tarihi', ascending=False)
             for _, row in history.iterrows():
-                tarih = row['islem_tarihi'].strftime('%Y-%m-%d %H:%M') if pd.notnull(row['islem_tarihi']) else "Bilinmiyor"
-                with st.expander(f"{row.get('versiyon', 'V?')} — {tarih}"):
-                    st.write(f"**Ad Soyad:** {row.get('ad_soyad', 'Belirtilmemiş')}")
+                t_str = row['islem_tarihi'].strftime('%Y-%m-%d %H:%M') if pd.notnull(row['islem_tarihi']) else "Bilinmiyor"
+                with st.expander(f"{row.get('versiyon', 'V?')} — Kayıt: {t_str}"):
+                    st.write(f"**Ad Soyad:** {row.get('ad_soyad', '-')}")
                     st.write(f"**TC:** {row.get('tc_no', '-')}")
-                    st.caption(f"ID: {row.get('id', '-')}")
+                    st.caption(f"Sistem ID: {row.get('id', '-')}")
 
 # 6. Kayıt Formu
 st.divider()
-st.subheader("➕ Yeni Kayıt Ekle")
+st.subheader("➕ Yeni Kayıt veya Güncelleme Ekle")
 with st.form("kayit_formu", clear_on_submit=True):
     f_ad = st.text_input("Ad Soyad")
     f_id = st.text_input("Personel ID")
@@ -97,7 +100,9 @@ with st.form("kayit_formu", clear_on_submit=True):
             yeni_satir = {"ad_soyad": f_ad, "personel_id": f_id, "tc_no": f_tc, "versiyon": f_ver}
             try:
                 supabase.table("Personel").insert(yeni_satir).execute()
-                st.success("Başarıyla eklendi!")
+                st.success("Kayıt başarıyla eklendi!")
                 st.rerun()
             except Exception as e:
                 st.error(f"Kayıt Hatası: {e}")
+        else:
+            st.warning("Lütfen Ad Soyad ve Personel ID alanlarını doldurun.")
