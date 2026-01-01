@@ -1,107 +1,131 @@
 import streamlit as st
 from supabase import create_client
 import pandas as pd
-from datetime import datetime
 
-# 1. Page Configuration & Preline CMS Styling
-st.set_page_config(page_title="İM-FEXİM Admin", layout="wide")
+# 1. Sayfa Yapılandırması (Geniş Mod)
+st.set_page_config(page_title="İMFEXİM", layout="wide", initial_sidebar_state="expanded")
 
+# 2. Üst Düzey Kurumsal CSS (Preline UI Standartları)
 st.markdown("""
     <style>
-    /* Global Preline UI Background */
+    /* 1. Reset & Global Background */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    
     .stApp, [data-testid="stHeader"], [data-testid="stSidebar"], [data-testid="stAppViewContainer"] {
         background-color: #FFFFFF !important;
+        font-family: 'Inter', sans-serif !important;
     }
-    
-    /* Typography - Professional Black */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
-    html, body, [class*="css"] { font-family: 'Inter', sans-serif !important; color: #111827 !important; }
-    h1, h2, h3, h4, p, label, span { color: #111827 !important; }
 
-    /* Clean Sidebar */
-    section[data-testid="stSidebar"] { border-right: 1px solid #E5E7EB !important; }
-    .nav-header { font-size: 11px; font-weight: 700; color: #9CA3AF; margin: 20px 0 10px 15px; text-transform: uppercase; }
-    
-    /* Custom Sidebar Navigation Buttons */
-    .stButton > button {
+    /* 2. Sidebar (Sol Menü) Tasarımı */
+    [data-testid="stSidebar"] {
+        border-right: 1px solid #F3F4F6 !important;
+        padding-top: 2rem !important;
+    }
+    .nav-label {
+        font-size: 11px; font-weight: 700; color: #9CA3AF;
+        margin: 20px 0 10px 10px; text-transform: uppercase; letter-spacing: 0.05em;
+    }
+
+    /* 3. Başlıklar ve Metinler */
+    h1, h2, h3, h4, p, label, span {
+        color: #1F2937 !important; /* Koyu Gri/Siyah */
+        font-weight: 500 !important;
+    }
+
+    /* 4. Girdi Alanları (Siyah Kutuları Yok Etme) */
+    div[data-baseweb="input"], div[data-baseweb="select"] > div, textarea {
         background-color: #FFFFFF !important;
-        color: #374151 !important;
-        border: 1px solid transparent !important;
-        text-align: left !important;
-        justify-content: flex-start !important;
-        width: 100% !important;
-        border-radius: 6px !important;
-        padding: 8px 12px !important;
+        border: 1px solid #D1D5DB !important;
+        border-radius: 8px !important;
+        color: #1F2937 !important;
     }
-    .stButton > button:hover { background-color: #F9FAFB !important; color: #2563EB !important; border-color: #E5E7EB !important; }
-
-    /* Modern Table (Data Editor) */
-    [data-testid="stDataEditor"] { border: 1px solid #E5E7EB !important; border-radius: 8px !important; }
+    input { color: #1F2937 !important; background-color: #FFFFFF !important; }
     
-    /* Primary Action Buttons */
-    .main-btn > div > button { background-color: #2563EB !important; color: #FFFFFF !important; border: none !important; }
+    /* Focus durumu (Mavi Çizgi) */
+    div[data-baseweb="input"]:focus-within {
+        border-color: #2563EB !important;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1) !important;
+    }
+
+    /* 5. Modern Kart Yapısı (Sistem Özeti İçin) */
+    .metric-card {
+        background: #FFFFFF;
+        border: 1px solid #E5E7EB;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        transition: transform 0.2s ease;
+    }
+    .metric-card:hover { transform: translateY(-2px); border-color: #2563EB; }
+
+    /* 6. Premium Butonlar */
+    .stButton > button {
+        background-color: #2563EB !important;
+        color: white !important;
+        border-radius: 8px !important;
+        border: none !important;
+        padding: 0.6rem 1.2rem !important;
+        font-weight: 600 !important;
+        transition: all 0.2s ease !important;
+    }
+    .stButton > button:hover {
+        background-color: #1D4ED8 !important;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2) !important;
+    }
+
+    /* 7. Tablo ve Data Editor Görünümü */
+    [data-testid="stDataEditor"] {
+        border: 1px solid #E5E7EB !important;
+        border-radius: 10px !important;
+        background-color: white !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Connection
-@st.cache_resource
-def init_connection():
-    return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
-supabase = init_connection()
-
-# 3. State Management
-if 'page' not in st.session_state: st.session_state.page = "Dashboard"
-
-# 4. Premium Navigation Sidebar
+# 3. Sidebar (Navigasyon)
 with st.sidebar:
-    st.markdown("<h3 style='color:#2563EB; padding-left:15px; font-weight:700;'>İM-FEXİM</h3>", unsafe_allow_html=True)
+    st.markdown("<h2 style='color:#2563EB; font-weight:700; padding-left:10px;'>İM-FEXİM</h2>", unsafe_allow_html=True)
+    st.markdown("---")
     
-    st.markdown("<div class='nav-header'>Hızlı Erişim</div>", unsafe_allow_html=True)
-    if st.button("Genel Durum"): st.session_state.page = "Dashboard"
+    st.markdown("<div class='nav-label'>Genel Bakış</div>", unsafe_allow_html=True)
+    page = st.radio("Ana Menü", ["Dashboard", "Organizasyon", "İşe Alım", "Çalışanlar"], label_visibility="collapsed")
     
-    st.markdown("<div class='nav-header'>Organizasyon</div>", unsafe_allow_html=True)
-    if st.button("Departmanlar"): st.session_state.page = "Departmanlar"
-    if st.button("Pozisyonlar"): st.session_state.page = "Pozisyonlar"
+    if page == "Organizasyon":
+        st.markdown("<div class='nav-label'>Kaynaklar</div>", unsafe_allow_html=True)
+        sub_page = st.radio("Alt Menü", ["Departmanlar", "Pozisyonlar", "Seviyeler"], label_visibility="collapsed")
+    elif page == "İşe Alım":
+        st.markdown("<div class='nav-label'>Süreç</div>", unsafe_allow_html=True)
+        sub_page = st.radio("Alt Menü", ["Adaylar"], label_visibility="collapsed")
+    else:
+        sub_page = page
+
+# --- SAYFA İÇERİKLERİ ---
+
+if sub_page == "Dashboard":
+    st.markdown("## Sistem Özeti")
+    st.markdown("<br>", unsafe_allow_html=True)
     
-    st.markdown("<div class='nav-header'>İnsan Kaynakları</div>", unsafe_allow_html=True)
-    if st.button("Aday Havuzu"): st.session_state.page = "Adaylar"
-    if st.button("Çalışan Listesi"): st.session_state.page = "Personeller"
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.markdown("""<div class='metric-card'><p style='color:#6B7280; font-size:14px;'>Toplam Aday</p><h2 style='margin:0;'>3</h2></div>""", unsafe_allow_html=True)
+    with c2:
+        st.markdown("""<div class='metric-card'><p style='color:#6B7280; font-size:14px;'>Aktif Çalışan</p><h2 style='margin:0;'>2</h2></div>""", unsafe_allow_html=True)
+    with c3:
+        st.markdown("""<div class='metric-card'><p style='color:#6B7280; font-size:14px;'>Departman Sayısı</p><h2 style='margin:0;'>10</h2></div>""", unsafe_allow_html=True)
 
-# 5. Helper Functions
-def show_table(df):
-    st.data_editor(df, use_container_width=True, hide_index=True, disabled=True)
-
-# --- PAGES ---
-
-if st.session_state.page == "Dashboard":
-    st.title("Sistem Özeti")
-    st.markdown("Kurumsal portal üzerinden genel verileri takip edebilirsiniz.")
-    # Metric cards here...
-
-elif st.session_state.page == "Adaylar":
-    st.title("Aday Takip Sistemi")
-    t1, t2 = st.tabs(["Yeni Aday Ekle", "Güncel Aday Havuzu"])
+elif sub_page == "Adaylar":
+    st.markdown("## Aday Takip Sistemi")
+    t1, t2 = st.tabs(["➕ Yeni Aday Ekle", "📋 Güncel Aday Havuzu"])
     
     with t1:
-        with st.form("c_form"):
-            ad = st.text_input("Ad Soyad")
-            tc = st.text_input("Kimlik No")
-            st.markdown('<div class="main-btn">', unsafe_allow_html=True)
-            if st.form_submit_button("Adayı Sisteme Kaydet"):
-                # Supabase insert logic...
-                st.success("Aday başarıyla kaydedildi.")
-            st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+        # Formu beyaz bir kartın içine alalım
+        with st.container():
+            st.text_input("Ad Soyad", placeholder="Örn: Ahmet Yılmaz")
+            st.text_input("Kimlik No", placeholder="11 haneli TC No")
+            st.button("Havuza Ekle")
 
     with t2:
-        res = supabase.table("adaylar").select("ad_soyad, kimlik_no, olusturma_tarihi").execute()
-        if res.data:
-            df = pd.DataFrame(res.data).rename(columns={"ad_soyad": "Aday Adı", "kimlik_no": "TC No", "olusturma_tarihi": "Kayıt Tarihi"})
-            show_table(df)
-        else: st.info("Kayıtlı aday bulunamadı.")
-
-elif st.session_state.page == "Departmanlar":
-    st.title("Departmanlar")
-    res = supabase.table("departmanlar").select("departman_adi").execute()
-    if res.data: show_table(pd.DataFrame(res.data))
-
-# ... Diğer sayfalar aynı mantıkla devam eder.
+        # Örnek DataTable (Görünüm testi için)
+        df = pd.DataFrame({"Aday": ["Ahmet Y.", "Mehmet K."], "Süreç": ["Mülakat", "Teknik Test"]})
+        st.data_editor(df, use_container_width=True, hide_index=True)
