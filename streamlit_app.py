@@ -3,164 +3,138 @@ from supabase import create_client
 import pandas as pd
 from datetime import datetime
 
-# 1. Sayfa Yapılandırması ve Tema Sıfırlama
-st.set_page_config(page_title="İM-FEXİM Admin", layout="wide", initial_sidebar_state="expanded")
+# 1. Sayfa Konfigürasyonu
+st.set_page_config(page_title="İM-FEXİM Admin", layout="wide")
 
-# 2. STRICT LIGHT MODE CSS (Siyahlığı Kökten Siler)
+# 2. ULTRA-BEYAZ VE MİNAMALİST BUTON CSS (Siyahlığı Kökten Siler)
 st.markdown("""
     <style>
-    /* 1. Global Arka Plan ve Metin Renkleri */
-    :root {
-        --primary-text: #111827;
-        --secondary-text: #4B5563;
-        --bg-white: #FFFFFF;
-        --border-light: #E5E7EB;
-    }
-
-    /* Tüm Container'ları Beyaz Yap */
+    /* Global Beyaz Zemin Zorlaması */
     .stApp, [data-testid="stHeader"], [data-testid="stSidebar"], [data-testid="stAppViewContainer"] {
-        background-color: var(--bg-white) !important;
-        color: var(--primary-text) !important;
+        background-color: #FFFFFF !important;
+        color: #000000 !important;
     }
 
-    /* 2. Form Elemanları (Dropbox, Inbox) - Siyahlığı Burası Öldürür */
-    input, select, textarea, div[data-baseweb="select"] > div, div[data-baseweb="input"] > div {
-        background-color: var(--bg-white) !important;
-        color: var(--primary-text) !important;
-        border: 1px solid var(--border-light) !important;
+    /* BUTONLARI BEYAZLAT (Siyah Buton Sorunu Çözümü) */
+    div.stButton > button {
+        background-color: #FFFFFF !important; /* Arka plan beyaz */
+        color: #111827 !important;           /* Yazı siyah */
+        border: 1px solid #D1D5DB !important; /* İnce gri çerçeve */
         border-radius: 6px !important;
+        padding: 0.5rem 1rem !important;
+        font-weight: 500 !important;
+        transition: all 0.2s ease;
     }
     
-    /* Input odaklandığında */
-    div[data-baseweb="input"]:focus-within, div[data-baseweb="select"]:focus-within {
-        border-color: #111827 !important;
-    }
-
-    /* 3. Tablolar (Zemin Beyaz, Yazı Siyah) */
-    div[data-testid="stTable"], div[data-testid="stTable"] table {
-        background-color: var(--bg-white) !important;
-        color: var(--primary-text) !important;
-    }
-    th { background-color: #F9FAFB !important; color: var(--primary-text) !important; }
-    td { color: var(--primary-text) !important; border-bottom: 1px solid var(--border-light) !important; }
-
-    /* 4. Butonlar (Siyah Minimalist - Mavi Değil) */
-    div.stButton > button {
-        background-color: #111827 !important;
-        color: #FFFFFF !important;
-        border: none !important;
-        border-radius: 6px !important;
-        font-weight: 600 !important;
-        padding: 0.5rem 1rem !important;
-        transition: all 0.2s;
-    }
+    /* Buton Hover (Üzerine Gelince Hafif Gri) */
     div.stButton > button:hover {
-        background-color: #374151 !important;
-        color: #FFFFFF !important;
+        background-color: #F9FAFB !important;
+        border-color: #111827 !important;
+        color: #111827 !important;
     }
 
-    /* 5. Sidebar Navigasyon */
-    [data-testid="stSidebar"] { border-right: 1px solid var(--border-light) !important; }
-    .nav-title { font-size: 11px; font-weight: 700; color: #9CA3AF; margin: 20px 0 10px 15px; text-transform: uppercase; }
+    /* Form Giriş Alanları (Dropbox & Inbox) */
+    input, select, textarea, div[data-baseweb="select"] > div, div[data-baseweb="input"] > div {
+        background-color: #FFFFFF !important;
+        color: #000000 !important;
+        border: 1px solid #D1D5DB !important;
+    }
 
-    /* 6. Tabs (Üst Alt Menü) */
-    .stTabs [data-baseweb="tab-list"] { background-color: var(--bg-white) !important; border-bottom: 1px solid var(--border-light) !important; }
-    .stTabs [data-baseweb="tab"] { color: var(--secondary-text) !important; font-weight: 500 !important; }
-    .stTabs [aria-selected="true"] { color: var(--primary-text) !important; border-bottom: 2px solid var(--primary-text) !important; }
+    /* Tablolar */
+    div[data-testid="stTable"] table { background-color: #FFFFFF !important; color: #000000 !important; }
+    th { background-color: #F9FAFB !important; color: #000000 !important; }
+    td { border-bottom: 1px solid #F3F4F6 !important; }
+
+    /* Sidebar Hiyerarşisi */
+    [data-testid="stSidebar"] { border-right: 1px solid #F3F4F6 !important; }
+    .nav-header { font-size: 11px; font-weight: 700; color: #9CA3AF; margin: 20px 0 10px 15px; text-transform: uppercase; }
     </style>
     """, unsafe_allow_html=True)
 
-# 3. Supabase Bağlantısı
+# 3. Bağlantı (Supabase)
 @st.cache_resource
 def init_connection():
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 supabase = init_connection()
 
-# 4. Sayfa Yönetimi (Session State)
-if 'page' not in st.session_state: st.session_state.page = "Dashboard"
+# 4. State Yönetimi
+if 'main_page' not in st.session_state: st.session_state.main_page = "Dashboard"
 
-# --- SOL MENÜ (ANA HİYERARŞİ) ---
+# --- SOL MENÜ (ANA KATEGORİLER) ---
 with st.sidebar:
-    st.markdown("<h3 style='color:#111827; padding-left:15px; font-weight:700;'>İM-FEXİM</h3>", unsafe_allow_html=True)
-    st.markdown("<div class='nav-title'>Genel Bakış</div>", unsafe_allow_html=True)
-    if st.button("📊 Dashboard", key="n_dash", use_container_width=True): st.session_state.page = "Dashboard"
-    
-    st.markdown("<div class='nav-title'>Kurumsal Yapı</div>", unsafe_allow_html=True)
-    if st.button("🏢 Organizasyon", key="n_org", use_container_width=True): st.session_state.page = "Organizasyon"
-    
-    st.markdown("<div class='nav-title'>İnsan Kaynakları</div>", unsafe_allow_html=True)
-    if st.button("👤 Aday Takip (ATS)", key="n_ats", use_container_width=True): st.session_state.page = "ATS"
-    if st.button("👥 Personel (HRM)", key="n_hrm", use_container_width=True): st.session_state.page = "HRM"
+    st.markdown("<h3 style='padding-left:15px; font-weight:700;'>İM-FEXİM</h3>", unsafe_allow_html=True)
+    st.markdown("<div class='nav-header'>Yönetim Paneli</div>", unsafe_allow_html=True)
+    if st.button("📊 Dashboard", use_container_width=True): st.session_state.main_page = "Dashboard"
+    if st.button("🏢 Organizasyon", use_container_width=True): st.session_state.main_page = "Organizasyon"
+    if st.button("👤 İşe Alım (ATS)", use_container_width=True): st.session_state.main_page = "ATS"
+    if st.button("👥 Çalışanlar (HRM)", use_container_width=True): st.session_state.main_page = "HRM"
 
-# --- YARDIMCI VERİ ÇEKME ---
-def fetch_safe(table):
-    res = supabase.table(table).select("*").execute()
+# --- YARDIMCI FONKSİYONLAR ---
+def fetch_data(table, select="*"):
+    res = supabase.table(table).select(select).execute()
     return res.data if res.data else []
 
-# --- ANA İÇERİK ---
+# --- SAĞ TARAF (ÜST SEKME VE FONKSİYONLAR) ---
 
-if st.session_state.page == "Dashboard":
+if st.session_state.main_page == "Dashboard":
     st.title("Sistem Özeti")
-    st.markdown("Veritabanındaki güncel metrikler ve organizasyonel durum.")
+    st.write("Dashboard metrikleri burada yer alacak.")
 
-elif st.session_state.page == "Organizasyon":
-    st.title("Organizasyon Yönetimi")
-    t1, t2, t3 = st.tabs(["Departmanlar", "Pozisyonlar", "Kariyer Seviyeleri"])
+elif st.session_state.main_page == "Organizasyon":
+    st.title("Organizasyon Yapılandırması")
+    tab1, tab2, tab3 = st.tabs(["Departmanlar", "Pozisyonlar", "Seviyeler"])
     
-    with t1:
-        with st.form("f_dep", clear_on_submit=True):
-            d_ad = st.text_input("Departman Adı")
-            if st.form_submit_button("Departmanı Kaydet"):
+    with tab1: # DEPARTMAN İŞLEMLERİ
+        with st.form("dep_add"):
+            d_ad = st.text_input("Yeni Departman")
+            if st.form_submit_button("Kaydet"):
                 supabase.table("departmanlar").insert({"departman_adi": d_ad}).execute()
                 st.rerun()
-        df_d = pd.DataFrame(fetch_safe("departmanlar"))
-        if not df_d.empty: st.table(df_d[["departman_adi"]])
+        st.table(pd.DataFrame(fetch_data("departmanlar"))[["departman_adi"]])
 
-    with t2:
-        deps = fetch_safe("departmanlar")
+    with tab2: # POZİSYON VE OTOMATİK 6 SEVİYE
+        deps = fetch_data("departmanlar")
         d_map = {d['departman_adi']: d['id'] for d in deps}
-        with st.form("f_poz"):
-            s_dep = st.selectbox("Departman", ["Seçiniz..."] + list(d_map.keys()))
+        with st.form("poz_add"):
+            s_dep = st.selectbox("Departman", list(d_map.keys()))
             p_ad = st.text_input("Pozisyon Adı")
-            if st.form_submit_button("Pozisyon Tanımla"):
+            if st.form_submit_button("Pozisyonu ve 6 Seviyeyi Oluştur"):
                 p_res = supabase.table("pozisyonlar").insert({"departman_id": d_map[s_dep], "pozisyon_adi": p_ad}).execute()
                 p_id = p_res.data[0]['id']
-                # 6 Seviye Üretimi (SCD Type 2 Hazırlığı)
-                levels = ["J1", "J2", "M1", "M2", "M3", "S"]
-                supabase.table("seviyeler").insert([{"pozisyon_id": p_id, "seviye_adi": f"{p_ad} {l}", "seviye_kodu": l} for l in levels]).execute()
+                # Otomatik Seviye Üretimi
+                codes = ["J1", "J2", "M1", "M2", "M3", "S"]
+                supabase.table("seviyeler").insert([{"pozisyon_id": p_id, "seviye_adi": f"{p_ad} {c}", "seviye_kodu": c} for c in codes]).execute()
                 st.rerun()
-        res_p = supabase.table("pozisyonlar").select("pozisyon_adi, departmanlar(departman_adi)").execute()
-        if res_p.data:
-            st.table(pd.DataFrame([{"Pozisyon": r['pozisyon_adi'], "Departman": r['departmanlar']['departman_adi']} for r in res_p.data]))
 
-elif st.session_state.page == "ATS":
-    st.title("Aday Takip & İşe Alım")
-    t1, t2 = st.tabs(["Yeni Aday", "Aday Havuzu"])
+    with tab3: # SEVİYE LİSTELEME
+        res = supabase.table("seviyeler").select("seviye_adi, pozisyonlar(pozisyon_adi)").execute()
+        if res.data:
+            st.table(pd.DataFrame([{"Seviye": r['seviye_adi'], "Pozisyon": r['pozisyonlar']['pozisyon_adi']} for r in res.data]))
+
+elif st.session_state.main_page == "ATS":
+    st.title("Aday Takip ve Versiyonlama")
+    tab_ekle, tab_liste = st.tabs(["Yeni Aday", "Aday Havuzu"])
     
-    with t1:
-        with st.form("f_aday"):
+    with tab_ekle:
+        with st.form("aday_form"):
             ad = st.text_input("Ad Soyad")
             tc = st.text_input("Kimlik No")
             if st.form_submit_button("Havuza Kaydet"):
                 a_res = supabase.table("adaylar").insert({"ad_soyad": ad, "kimlik_no": tc}).execute()
                 a_id = a_res.data[0]['id']
-                # SCD Type 2 Versiyonlama Başlat
                 v_res = supabase.table("aday_versiyonlar").insert({
                     "aday_id": a_id, "ad_soyad": ad, "kimlik_no": tc, "ise_alim_sureci": "aday havuzu",
                     "baslangic_tarihi": datetime.now().isoformat()
                 }).execute()
                 supabase.table("adaylar").update({"guncel_versiyon_id": v_res.data[0]['id']}).eq("id", a_id).execute()
-                st.success("Kayıt oluşturuldu."); st.rerun()
+                st.rerun()
 
-    with t2:
+    with tab_liste:
         res = supabase.table("adaylar").select("*, aday_versiyonlar!guncel_versiyon_id(*)").execute()
         if res.data:
-            df_a = pd.DataFrame([{"Ad Soyad": r['ad_soyad'], "Süreç": r['aday_versiyonlar']['ise_alim_sureci']} for r in res.data if r['aday_versiyonlar']])
-            st.table(df_a)
+            st.table(pd.DataFrame([{"Aday": r['ad_soyad'], "Süreç": r['aday_versiyonlar']['ise_alim_sureci']} for r in res.data if r['aday_versiyonlar']]))
 
-elif st.session_state.page == "HRM":
+elif st.session_state.main_page == "HRM":
     st.title("Personel Yönetimi")
-    res_pers = fetch_safe("personeller")
-    if res_pers:
-        st.table(pd.DataFrame(res_pers)[["ad_soyad", "kimlik_no"]])
-    else: st.info("Henüz çalışan personel kaydı bulunmuyor.")
+    # Personel listesi ve versiyon detayları...
+    st.table(pd.DataFrame(fetch_data("personeller"))[["ad_soyad", "kimlik_no"]])
