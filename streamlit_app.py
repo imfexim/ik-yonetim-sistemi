@@ -4,7 +4,7 @@ import pandas as pd
 from datetime import datetime
 
 # 1. Sayfa Konfigürasyonu
-st.set_page_config(page_title="İM-FEXİM | Admin", layout="wide")
+st.set_page_config(page_title="İMFEXİM | Admin", layout="wide")
 
 # 2. KARANLIK TEMAYI VE OKUNURLUK SORUNUNU ÖLDÜREN CSS
 st.markdown("""
