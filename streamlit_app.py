@@ -45,7 +45,7 @@ if menu == "Şirket Tanımlama":
             s_adres = st.text_area("Şirket Adresi", height=80)
             col3, col4 = st.columns(2)
             s_mail = col3.text_input("Şirket Mail Adresi")
-            s_konum = col4.text_input("Şirket Konumu (Şehir/Ülke)")
+            s_konum = col4.text_input("Şirket Genel Konumu (Şehir/Ülke)")
             
             st.markdown("<br>##### Yönetici Bilgileri", unsafe_allow_html=True)
             col5, col6, col7 = st.columns(3)
@@ -90,12 +90,17 @@ elif menu == "Lokasyon Yönetimi":
             with st.form("lokasyon_detay_form", clear_on_submit=True):
                 st.markdown("##### Lokasyon Temel Bilgileri")
                 c1, c2, c3 = st.columns(3)
-                l_ad = c1.text_input("Lokasyon Adı (Örn: Gebze Depo)")
-                l_tip = c2.selectbox("Lokasyon Tipi", ["Genel Merkez", "Bölge Müdürlüğü", "Şube", "Depo", "Bayi", "Fabrika"])
+                l_ad = c1.text_input("Lokasyon Adı (Örn: Gebze Lojistik Merkezi)")
+                l_tip = c2.selectbox("Lokasyon Tipi", ["Genel Merkez", "Bölge Müdürlüğü", "Şube", "Depo", "Bayi", "Fabrika", "Ofis"])
                 l_mail = c3.text_input("Lokasyon Genel Mail")
                 
-                l_adres = st.text_area("Lokasyon Adresi")
-                l_tel = st.text_input("Lokasyon Telefonu")
+                l_adres = st.text_area("Lokasyon Açık Adresi")
+                l_tel = st.text_input("Lokasyon İletişim Telefonu")
+
+                st.markdown("##### Coğrafi Konum Bilgileri (GPS)")
+                g1, g2 = st.columns(2)
+                l_x = g1.text_input("Koordinat X (Enlem / Latitude)", placeholder="Örn: 40.9833")
+                l_y = g2.text_input("Koordinat Y (Boylam / Longitude)", placeholder="Örn: 29.1167")
 
                 st.markdown("##### Muhatap / Sorumlu Kişi Bilgileri")
                 m1, m2, m3 = st.columns(3)
@@ -108,11 +113,12 @@ elif menu == "Lokasyon Yönetimi":
                         new_loc = {
                             "sirket_id": str(selected_sirket_id), "lokasyon_adi": l_ad, "lokasyon_tipi": l_tip,
                             "lokasyon_mail": l_mail, "adres": l_adres, "telefon": l_tel,
+                            "koordinat_x": l_x, "koordinat_y": l_y,
                             "muhatap_ad": m_ad, "muhatap_tel": m_tel, "muhatap_mail": m_mail
                         }
                         try:
                             supabase.table("lokasyonlar").insert(new_loc).execute()
-                            st.success(f"{l_ad} başarıyla kaydedildi.")
+                            st.success(f"{l_ad} lokasyonu koordinat bilgileriyle birlikte kaydedildi.")
                         except Exception as e: st.error(f"Hata: {e}")
                     else: st.warning("Lokasyon adı gereklidir.")
 
@@ -121,8 +127,9 @@ elif menu == "Lokasyon Yönetimi":
                 res_l = supabase.table("lokasyonlar").select("*").eq("sirket_id", selected_sirket_id).execute()
                 l_data = pd.DataFrame(res_l.data)
                 if not l_data.empty:
+                    # Sütunları daha temiz gösterelim
                     l_data.columns = [c.replace('_', ' ').title() for c in l_data.columns]
                     st.dataframe(l_data, use_container_width=True, hide_index=True)
-                else: st.info("Tanımlı lokasyon yok.")
+                else: st.info("Bu şirkete tanımlı lokasyon bulunamadı.")
             except: st.error("Veri yüklenemedi.")
     else: st.warning("Önce bir şirket tanımlamalısınız.")
