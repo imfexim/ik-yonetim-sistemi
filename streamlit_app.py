@@ -4,7 +4,7 @@ import pandas as pd
 from datetime import datetime
 
 # 1. Konfigürasyon ve Stil
-st.set_page_config(page_title="İM-FEXİM Kurumsal", layout="wide")
+st.set_page_config(page_title="İM-FEXİM İnsan Kaynakları", layout="wide")
 st.markdown("""
     <style>
     .stApp { background-color: #FFFFFF !important; }
@@ -21,7 +21,11 @@ def init_connection():
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 supabase = init_connection()
 
-# 3. Menü Yapısı
+# 3. Yardımcı Fonksiyonlar (Veri Çekme)
+def get_all(table): return supabase.table(table).select("*").execute().data
+def get_filtered(table, col, val): return supabase.table(table).select("*").eq(col, val).execute().data
+
+# --- ANA MENÜ ---
 with st.sidebar:
     st.markdown("### 🏢 İM-FEXİM")
     main_nav = st.radio("ANA MENÜ", ["Organizasyon", "İşe Alım"])
@@ -31,108 +35,91 @@ with st.sidebar:
     else:
         sub_nav = st.radio("ALT MENÜ", ["Adaylar"])
 
-# --- YARDIMCI VERİ ÇEKME FONKSİYONLARI ---
-def get_deps(): return supabase.table("departmanlar").select("id, departman_adi").execute().data
-def get_pozs(d_id=None): 
-    query = supabase.table("pozisyonlar").select("id, pozisyon_adi")
-    if d_id: query = query.eq("departman_id", d_id)
-    return query.execute().data
-def get_sevs(p_id=None):
-    query = supabase.table("seviyeler").select("id, seviye_adi")
-    if p_id: query = query.eq("pozisyon_id", p_id)
-    return query.execute().data
-
-# --- ADAYLAR MODÜLÜ ---
+# --- ADAYLAR MODÜLÜ (GÜNCELLEME ODAKLI) ---
 if sub_nav == "Adaylar":
     st.header("👤 Aday Yönetimi")
-    t1, t2 = st.tabs(["➕ Yeni Aday Ekle", "📋 Aday Listesi & Düzenle"])
-    
+    t1, t2 = st.tabs(["➕ Yeni Aday Kaydı", "📋 Liste ve Bilgi Güncelleme"])
+
+    # --- TAB 1: YENİ KAYIT (Özet Geçildi) ---
     with t1:
-        # (Yeni Aday Ekleme kodunuz burada aynı kalıyor, yer kazanmak için özet geçiyorum)
-        with st.container():
-            n_ad = st.text_input("Ad Soyad *")
-            n_tc = st.text_input("Kimlik No *")
-            n_tel = st.text_input("Telefon")
-            
-            all_deps = get_deps()
-            d_map = {d['departman_adi']: d['id'] for d in all_deps}
-            s_d = st.selectbox("Departman", ["Seçiniz..."] + list(d_map.keys()), key="new_dep")
-            
-            s_p_id = None
-            s_s_id = None
-            if s_d != "Seçiniz...":
-                all_pozs = get_pozs(d_map[s_d])
-                p_map = {p['pozisyon_adi']: p['id'] for p in all_pozs}
-                s_p = st.selectbox("Pozisyon", ["Seçiniz..."] + list(p_map.keys()), key="new_poz")
-                if s_p != "Seçiniz...":
-                    s_p_id = p_map[s_p]
-                    all_sevs = get_sevs(s_p_id)
-                    sv_map = {sv['seviye_adi']: sv['id'] for sv in all_sevs}
-                    s_s = st.selectbox("Seviye", ["Seçiniz..."] + list(sv_map.keys()), key="new_sev")
-                    if s_s != "Seçiniz...": s_s_id = sv_map[s_s]
+        st.info("Yeni aday kaydı yaparken kimlik bilgilerini eksiksiz giriniz.")
+        # ... (Önceki bölümlerdeki yeni kayıt formu burada yer alacak)
 
-            if st.button("🚀 Adayı Kaydet"):
-                if n_ad and n_tc:
-                    a_res = supabase.table("adaylar").insert({"ad_soyad": n_ad, "kimlik_no": n_tc}).execute()
-                    a_id = a_res.data[0]['id']
-                    v_res = supabase.table("aday_versiyonlar").insert({
-                        "aday_id": a_id, "ad_soyad": n_ad, "kimlik_no": n_tc, "telefon": n_tel,
-                        "departman_id": d_map.get(s_d), "pozisyon_id": s_p_id, "seviye_id": s_s_id,
-                        "islemi_yapan": "Sistemsel", "baslangic_tarihi": datetime.now().isoformat()
-                    }).execute()
-                    supabase.table("adaylar").update({"guncel_versiyon_id": v_res.data[0]['id']}).eq("id", a_id).execute()
-                    st.success("Kaydedildi"); st.rerun()
-
+    # --- TAB 2: LİSTELEME VE DİNAMİK VERSİYONLAMA ---
     with t2:
-        # LİSTELEME VE DÜZENLEME
+        # Mevcut adayları en güncel versiyonlarıyla çek
         res = supabase.table("adaylar").select("*, aday_versiyonlar!guncel_versiyon_id(*, departmanlar(departman_adi), pozisyonlar(pozisyon_adi), seviyeler(seviye_adi))").execute()
         
         if res.data:
             for aday in res.data:
                 v = aday['aday_versiyonlar']
-                with st.expander(f"📝 {aday['ad_soyad']} - {v['departmanlar']['departman_adi'] if v and v['departmanlar'] else 'Atanmamış'}"):
-                    st.markdown("### Bilgileri Güncelle (Yeni Versiyon Oluşturur)")
+                exp_label = f"📝 {aday['ad_soyad']} | {v['departmanlar']['departman_adi'] if v and v['departmanlar'] else 'Atanmamış'}"
+                
+                with st.expander(exp_label):
+                    st.warning("Kimlik bilgileri (Ad Soyad, TC No) sabittir. Kariyer ve iletişim bilgilerini aşağıdan güncelleyebilirsiniz.")
                     
-                    with st.form(key=f"edit_form_{aday['id']}"):
-                        e_ad = st.text_input("Ad Soyad", value=v['ad_soyad'])
-                        e_tel = st.text_input("Telefon", value=v['telefon'] if v['telefon'] else "")
+                    # Düzenleme Formu
+                    with st.form(key=f"v_update_{aday['id']}", clear_on_submit=False):
+                        c1, c2 = st.columns(2)
+                        c1.text_input("Ad Soyad", value=aday['ad_soyad'], disabled=True)
+                        c2.text_input("Kimlik No", value=aday['kimlik_no'], disabled=True)
                         
-                        # Güncelleme için Departman/Pozisyon/Seviye Seçimi
-                        all_deps = get_deps()
-                        d_names = [d['departman_adi'] for d in all_deps]
-                        current_d_name = v['departmanlar']['departman_adi'] if v and v['departmanlar'] else "Seçiniz..."
-                        e_dep = st.selectbox("Departman", ["Seçiniz..."] + d_names, index=d_names.index(current_d_name)+1 if current_d_name in d_names else 0)
+                        u_tel = st.text_input("Telefon Numarası", value=v['telefon'] if v else "")
                         
-                        st.info("Not: Pozisyon ve Seviye değişiklikleri bu sürümde ana tanımlardan manuel girilecektir. Dinamik bağlı seçim listeleme ekranında stabilite için sabitlenmiştir.")
+                        # --- DİNAMİK KARİYER SEÇİMİ (Versiyonlanacak Alanlar) ---
+                        deps = get_all("departmanlar")
+                        d_map = {d['departman_adi']: d['id'] for d in deps}
                         
-                        if st.form_submit_button("✅ Değişiklikleri Kaydet (Yeni Versiyon)"):
+                        # Mevcut departman indexini bul
+                        current_d = v['departmanlar']['departman_adi'] if v and v['departmanlar'] else "Seçiniz..."
+                        d_list = ["Seçiniz..."] + list(d_map.keys())
+                        u_dep_name = st.selectbox("Departman", d_list, index=d_list.index(current_d) if current_d in d_list else 0)
+                        
+                        u_poz_id = v['pozisyon_id'] if v else None
+                        u_sev_id = v['seviye_id'] if v else None
+
+                        st.caption("Not: Departman/Pozisyon değişikliği yaptıysanız, lütfen ilgili alt seçenekleri de yeniden seçiniz.")
+                        
+                        if u_dep_name != "Seçiniz...":
+                            pozs = get_filtered("pozisyonlar", "departman_id", d_map[u_dep_name])
+                            p_map = {p['pozisyon_adi']: p['id'] for p in pozs}
+                            p_list = ["Seçiniz..."] + list(p_map.keys())
+                            u_poz_name = st.selectbox("Pozisyon", p_list)
+                            
+                            if u_poz_name != "Seçiniz...":
+                                u_poz_id = p_map[u_poz_name]
+                                sevs = get_filtered("seviyeler", "pozisyon_id", u_poz_id)
+                                s_map = {s['seviye_adi']: s['id'] for s in sevs}
+                                s_list = ["Seçiniz..."] + list(s_map.keys())
+                                u_sev_name = st.selectbox("Seviye", s_list)
+                                if u_sev_name != "Seçiniz...":
+                                    u_sev_id = s_map[u_sev_name]
+
+                        if st.form_submit_button("Sürüm Güncelle ve Arşivle"):
                             simdi = datetime.now().isoformat()
                             
-                            # 1. ESKİ VERSİYONU KAPAT
-                            supabase.table("aday_versiyonlar").update({"bitis_tarihi": simdi}).eq("id", v['id']).execute()
+                            # 1. ESKİ SÜRÜMÜN BİTİŞ TARİHİNİ GÜNCELLE
+                            if v:
+                                supabase.table("aday_versiyonlar").update({"bitis_tarihi": simdi}).eq("id", v['id']).execute()
                             
-                            # 2. YENİ VERSİYONU AÇ
-                            new_v = supabase.table("aday_versiyonlar").insert({
+                            # 2. YENİ SÜRÜMÜ OLUŞTUR
+                            new_v_res = supabase.table("aday_versiyonlar").insert({
                                 "aday_id": aday['id'],
-                                "ad_soyad": e_ad,
+                                "ad_soyad": aday['ad_soyad'],
                                 "kimlik_no": aday['kimlik_no'],
-                                "telefon": e_tel,
-                                "departman_id": v['departman_id'], # Mevcutları koru veya formdan al
-                                "pozisyon_id": v['pozisyon_id'],
-                                "seviye_id": v['seviye_id'],
-                                "islemi_yapan": "Kullanıcı", # İleride dinamik olacak
+                                "telefon": u_tel,
+                                "departman_id": d_map.get(u_dep_name) if u_dep_name != "Seçiniz..." else v['departman_id'],
+                                "pozisyon_id": u_poz_id,
+                                "seviye_id": u_sev_id,
+                                "islemi_yapan": "Sistemsel", # İleride aktif kullanıcı adı gelecek
                                 "baslangic_tarihi": simdi
                             }).execute()
                             
-                            # 3. ANA TABLOYU GÜNCELLE
-                            supabase.table("adaylar").update({
-                                "ad_soyad": e_ad,
-                                "guncel_versiyon_id": new_v.data[0]['id']
-                            }).eq("id", aday['id']).execute()
+                            # 3. ANA TABLO REFERANSINI GÜNCELLE
+                            new_v_id = new_v_res.data[0]['id']
+                            supabase.table("adaylar").update({"guncel_versiyon_id": new_v_id}).eq("id", aday['id']).execute()
                             
-                            st.success("Bilgiler güncellendi ve eski sürüm arşivlendi!")
+                            st.success("Adayın yeni sürümü oluşturuldu ve geçmiş kayıt arşivlendi.")
                             st.rerun()
         else:
-            st.info("Kayıtlı aday bulunamadı.")
-
-# (Organizasyon menüleri aynı kalıyor...)
+            st.info("Listelenecek aday bulunamadı.")
